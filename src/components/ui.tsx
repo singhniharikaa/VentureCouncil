@@ -178,6 +178,36 @@ export function SelectInput({
   )
 }
 
+/** Select where the visible label and the stored value differ (e.g. name vs id). */
+export function SelectKV({
+  value,
+  onChange,
+  options,
+  placeholder,
+  invalid,
+}: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+  placeholder?: string
+  invalid?: boolean
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`${inputBase} ${invalid ? 'border-reject' : 'border-line'} ${!value ? 'text-ink-faint' : ''}`}
+    >
+      {placeholder && <option value="">{placeholder}</option>}
+      {options.map((o) => (
+        <option key={o.value} value={o.value} className="text-ink">
+          {o.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 export function TogglePill({
   active,
   onClick,
