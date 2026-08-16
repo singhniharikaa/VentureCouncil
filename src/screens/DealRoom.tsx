@@ -7,7 +7,7 @@ import { AgentCard } from '../components/AgentCard'
 import { DebateView } from '../components/DebateView'
 import { CompExplorer, VerdictPanel } from '../components/VerdictPanel'
 import { Card, EmptyState, PillButton, VerdictBadge } from '../components/ui'
-import type { DealInput, Evaluation, Recommendation } from '../types'
+import type { AgentResult, DealInput, Evaluation, Recommendation } from '../types'
 
 export function DealRoom() {
   const location = useLocation()
@@ -24,7 +24,7 @@ export function DealRoom() {
     if (!creator) return
 
     savedId.current = `ev_${Date.now().toString(36)}`
-    const cancel = runCouncil(input, creator, setProgress)
+    const cancel = runCouncil(input, creator, creators, setProgress)
     return cancel
     // Re-running only when the submitted deal changes is intentional; creators
     // updating mid-run should not restart the council.
@@ -45,6 +45,7 @@ export function DealRoom() {
       brandName: input.brandName,
       brandCategory: input.brandCategory,
       amountInr: input.amountInr,
+      dealType: input.dealType,
       deliverables: input.deliverables,
       agents: progress.agents,
       verdict: progress.verdict,
@@ -170,29 +171,7 @@ export function DealRoom() {
 
       {progress && progress.comps.length > 0 && (
         <section className="mt-9 grid gap-5 lg:grid-cols-[1fr_360px]">
-          <Card className="p-6">
-            <h3 className="text-base font-bold uppercase tracking-tight">Pricing basis</h3>
-            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-              The Pricing agent's fair range is derived from these retrieved comparables, not from
-              general market knowledge. Open any comp to sanity-check the model against a real past
-              deal.
-            </p>
-            {agents.find((a) => a.id === 'pricing')?.status === 'done' && (
-              <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                {(['fair_range_min', 'fair_range_max', 'deviation_pct'] as const).map((k) => {
-                  const v = agents.find((a) => a.id === 'pricing')!.typed[k]
-                  return (
-                    <div key={k} className="rounded-xl border border-line bg-paper p-4">
-                      <div className="text-xl font-bold tracking-tight">
-                        {k === 'deviation_pct' ? `${v}%` : `₹${Number(v).toLocaleString('en-IN')}`}
-                      </div>
-                      <div className="eyebrow mt-1">{k.replace(/_/g, ' ')}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
+          <PricingBasis pricing={agents.find((a) => a.id === 'pricing')} />
           <CompExplorer comps={progress.comps} />
         </section>
       )}
@@ -211,6 +190,58 @@ export function DealRoom() {
         />
       )}
     </div>
+  )
+}
+
+/** Shows whichever basis the Pricing agent actually used — rate card, comps, or neither. */
+function PricingBasis({ pricing }: { pricing?: AgentResult }) {
+  if (!pricing || pricing.status !== 'done') {
+    return (
+      <Card className="p-6">
+        <h3 className="text-base font-bold uppercase tracking-tight">Pricing basis</h3>
+        <p className="mt-2 text-sm text-ink-soft">Waiting for the Pricing agent…</p>
+      </Card>
+    )
+  }
+
+  const rateCard = pricing.typed.rate_card_inr
+  const compMedian = pricing.typed.comp_median_inr
+  const deviation = pricing.typed.deviation_pct
+
+  const tiles: { label: string; value: string }[] = []
+  if (typeof rateCard === 'number') {
+    tiles.push({ label: 'Creator rate card', value: `₹${rateCard.toLocaleString('en-IN')}` })
+  } else if (typeof compMedian === 'number') {
+    tiles.push({ label: 'Comparable median', value: `₹${compMedian.toLocaleString('en-IN')}` })
+  }
+  if (typeof deviation === 'number') {
+    tiles.push({ label: 'Offer deviation', value: `${deviation >= 0 ? '+' : ''}${deviation}%` })
+  }
+  if (typeof pricing.typed.comps_used === 'number') {
+    tiles.push({ label: 'Comps retrieved', value: String(pricing.typed.comps_used) })
+  }
+
+  return (
+    <Card className="p-6">
+      <h3 className="text-base font-bold uppercase tracking-tight">Pricing basis</h3>
+      <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+        {typeof rateCard === 'number'
+          ? "Priced against the creator's own quoted rate — the strongest basis available."
+          : pricing.insufficientData
+            ? 'No rate card and no comparables. There is no basis to judge this offer.'
+            : 'The creator has no rate on file for this deal type, so the offer is judged against comparable creators. Treat this as inferred, not quoted.'}
+      </p>
+      {tiles.length > 0 && (
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          {tiles.map((t) => (
+            <div key={t.label} className="rounded-xl border border-line bg-paper p-4">
+              <div className="text-xl font-bold tracking-tight">{t.value}</div>
+              <div className="eyebrow mt-1">{t.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   )
 }
 

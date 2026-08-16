@@ -1,19 +1,24 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { BRAND_CATEGORIES, DELIVERABLE_OPTIONS } from '../lib/seed'
+import { BRAND_CATEGORIES, DEAL_TYPES, DELIVERABLE_OPTIONS } from '../lib/seed'
+import { creatorSignals } from '../lib/csv'
 import { ArrowCircle, Card, Field, PillButton, SelectInput, SelectKV, TextInput, TogglePill } from '../components/ui'
 import type { DealInput } from '../types'
 
 type Errors = Partial<Record<'creatorId' | 'brandName' | 'brandCategory' | 'amountInr' | 'deliverables', string>>
 
+const compact = (n: number) =>
+  n >= 10_000_000 ? `${(n / 10_000_000).toFixed(1)}Cr` : n >= 100_000 ? `${(n / 100_000).toFixed(1)}L` : n.toLocaleString('en-IN')
+
 export function NewEvaluation() {
-  const { creators } = useStore()
+  const { creators, loading } = useStore()
   const navigate = useNavigate()
 
   const [creatorId, setCreatorId] = useState('')
   const [brandName, setBrandName] = useState('')
   const [brandCategory, setBrandCategory] = useState('')
+  const [dealType, setDealType] = useState<'integration' | 'dedicated'>('integration')
   const [amount, setAmount] = useState('')
   const [deliverables, setDeliverables] = useState<string[]>([])
   const [deadline, setDeadline] = useState('')
@@ -24,8 +29,15 @@ export function NewEvaluation() {
   const [fileName, setFileName] = useState('')
 
   const creator = creators.find((c) => c.id === creatorId)
+  const signals = creator ? creatorSignals(creator) : null
+  const rateCard = creator
+    ? dealType === 'dedicated'
+      ? creator.dedicatedPriceInr
+      : creator.integrationPriceInr
+    : null
 
-  /** Client-side validation runs before submit so agents never see ambiguous input. */
+  const brandIsBetting = brandCategory === 'Betting'
+
   function validate(): Errors {
     const e: Errors = {}
     if (!creatorId) e.creatorId = 'Select a creator from the roster.'
@@ -47,11 +59,13 @@ export function NewEvaluation() {
       brandName: brandName.trim(),
       brandCategory,
       amountInr: Number(amount),
+      dealType,
       deliverables,
       deadline: deadline || null,
       exclusivityClause: exclusivity,
       contractText,
       brandRegistrationVerified: registrationVerified,
+      brandIsBetting,
     }
     navigate('/deal-room', { state: { input } })
   }
@@ -59,58 +73,65 @@ export function NewEvaluation() {
   async function onFile(file: File | undefined) {
     if (!file) return
     setFileName(file.name)
-    // Only plain text can be read in-browser; PDF/DOCX extraction happens server-side.
-    if (/\.(txt|md)$/i.test(file.name)) {
-      setContractText(await file.text())
-    }
+    if (/\.(txt|md)$/i.test(file.name)) setContractText(await file.text())
   }
 
-  function toggleDeliverable(d: string) {
+  const toggleDeliverable = (d: string) =>
     setDeliverables((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]))
-  }
 
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-10 text-center">
         <h1 className="text-4xl font-bold tracking-tight lg:text-5xl">Evaluate New Deal</h1>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-ink-soft">
-          Enter deal parameters to initiate the council run. Structured fields only — free-text
-          intake is what makes agents guess.
+          Structured fields only — free-text intake is what makes agents guess.
         </p>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2">
         <Card className="p-6">
-          <h2 className="mb-5 text-lg font-semibold">Creator Details</h2>
+          <h2 className="mb-5 text-lg font-semibold">Creator</h2>
           <div className="space-y-4">
-            <Field label="Creator" error={errors.creatorId}>
+            <Field label="From roster" error={errors.creatorId}>
               <SelectKV
                 value={creatorId}
                 onChange={setCreatorId}
                 invalid={!!errors.creatorId}
-                placeholder="Select from roster…"
+                placeholder={loading ? 'Loading roster…' : `Select from ${creators.length} creators…`}
                 options={creators.map((c) => ({
                   value: c.id,
-                  label: `${c.name} — ${c.followers.toLocaleString('en-IN')} · ${c.niche}`,
+                  label: `${c.name} — ${compact(c.subscriberCount)} subs${c.niche ? ` · ${c.niche}` : ''}`,
                 }))}
               />
             </Field>
-            {creator && (
-              <div className="rounded-xl border border-line bg-paper px-4 py-3 text-sm">
+
+            {creator && signals && (
+              <div className="space-y-2 rounded-xl border border-line bg-paper px-4 py-3 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">@{creator.handle}</span>
-                  {creator.verified ? (
-                    <span className="flex items-center gap-1 text-xs text-accept">
-                      <CheckIcon /> Verified account
-                    </span>
-                  ) : (
-                    <span className="text-xs text-negotiate">Unverified</span>
-                  )}
+                  <span className="rounded-full border border-line bg-surface px-2 py-0.5">
+                    {signals.tier} tier
+                  </span>
                 </div>
-                <div className="mt-1.5 text-xs text-ink-soft">
-                  {creator.tier}-tier · {creator.followers.toLocaleString('en-IN')} followers ·{' '}
-                  {creator.engagementRate}% ER · {creator.niche}
+                <div className="text-ink-soft">
+                  {compact(creator.subscriberCount)} subs · {compact(creator.totalViews)} views ·{' '}
+                  {creator.videoCount} videos
                 </div>
+                <div className="text-ink-soft">
+                  {signals.hasReachData
+                    ? `${(signals.viewThroughRate * 100).toFixed(1)}% view-through`
+                    : 'No usable reach data'}
+                </div>
+                {!creator.niche && (
+                  <div className="text-negotiate">
+                    No niche recorded — Audience Fit will abstain.
+                  </div>
+                )}
+                {creator.contentFlag !== 'unknown' && (
+                  <div className="text-ink-soft">
+                    Content marker: <span className="font-medium text-ink">{creator.contentFlag}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -136,6 +157,12 @@ export function NewEvaluation() {
                 invalid={!!errors.brandCategory}
               />
             </Field>
+            {brandIsBetting && creator?.contentFlag === 'non-betting' && (
+              <div className="rounded-xl border border-reject/30 bg-reject-bg px-4 py-3 text-xs text-reject">
+                {creator.name} is marked <strong>non-betting</strong> in the roster. This will trigger
+                a hard Reject rule.
+              </div>
+            )}
             <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-line bg-paper px-4 py-3">
               <input
                 type="checkbox"
@@ -151,25 +178,52 @@ export function NewEvaluation() {
             </label>
           </div>
         </Card>
+      </div>
 
-        <Card className="p-6">
+      <Card className="mt-5 p-6">
+        <h2 className="mb-5 text-lg font-semibold">Deal Type &amp; Fee</h2>
+        <div className="grid gap-5 md:grid-cols-2">
+          <Field label="Deal type" hint="Determines which rate card the Pricing agent reads.">
+            <div className="flex gap-2.5">
+              {DEAL_TYPES.map((d) => (
+                <TogglePill
+                  key={d.value}
+                  active={dealType === d.value}
+                  onClick={() => setDealType(d.value)}
+                >
+                  {d.label}
+                </TogglePill>
+              ))}
+            </div>
+          </Field>
+
           <Field label="Deal amount (₹)" error={errors.amountInr}>
             <TextInput
               value={amount}
               onChange={setAmount}
-              placeholder="150000"
+              placeholder="35000"
               invalid={!!errors.amountInr}
               prefix="₹"
             />
           </Field>
-        </Card>
+        </div>
 
-        <Card className="p-6">
-          <Field label="Target deadline" hint="Optional">
-            <TextInput value={deadline} onChange={setDeadline} type="date" />
-          </Field>
-        </Card>
-      </div>
+        {creator && (
+          <div className="mt-4 rounded-xl border border-line bg-paper px-4 py-3 text-xs">
+            {rateCard !== null ? (
+              <>
+                Listed {dealType} rate for {creator.name}:{' '}
+                <strong className="text-ink">₹{rateCard.toLocaleString('en-IN')}</strong>
+              </>
+            ) : (
+              <span className="text-negotiate">
+                No {dealType} rate on file for {creator.name} — Pricing will fall back to
+                comparables and lower its confidence.
+              </span>
+            )}
+          </div>
+        )}
+      </Card>
 
       <Card className="mt-5 p-6">
         <h2 className="mb-1 text-lg font-semibold">Required Deliverables</h2>
@@ -180,6 +234,11 @@ export function NewEvaluation() {
               {d}
             </TogglePill>
           ))}
+        </div>
+        <div className="mt-5 max-w-xs">
+          <Field label="Target deadline" hint="Optional">
+            <TextInput value={deadline} onChange={setDeadline} type="date" />
+          </Field>
         </div>
       </Card>
 
@@ -205,12 +264,7 @@ export function NewEvaluation() {
         </div>
 
         <label className="mt-5 grid cursor-pointer place-items-center rounded-2xl border border-dashed border-line-strong px-6 py-10 text-center transition hover:border-ink">
-          <input
-            type="file"
-            accept=".txt,.md,.pdf,.docx"
-            className="hidden"
-            onChange={(e) => onFile(e.target.files?.[0])}
-          />
+          <input type="file" accept=".txt,.md,.pdf,.docx" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
           <UploadIcon />
           <span className="mt-3 text-sm font-medium">{fileName || 'Upload draft contract'}</span>
           <span className="mt-1 text-xs text-ink-soft">
@@ -246,15 +300,6 @@ export function NewEvaluation() {
         </PillButton>
       </div>
     </div>
-  )
-}
-
-function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
-      <path d="m3.8 6.1 1.5 1.5 2.9-2.9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   )
 }
 

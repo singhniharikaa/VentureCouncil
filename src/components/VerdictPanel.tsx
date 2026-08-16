@@ -1,5 +1,5 @@
 import type { Comp, Verdict } from '../types'
-import { Card, VerdictBadge } from './ui'
+import { Card } from './ui'
 
 const DECISION_COPY: Record<string, string> = {
   accept: 'Accept',
@@ -98,14 +98,14 @@ export function CompExplorer({ comps, onOpen }: { comps: Comp[]; onOpen?: (c: Co
             className="w-full rounded-2xl border border-line bg-paper p-4 text-left transition hover:border-ink"
           >
             <div className="flex items-start justify-between gap-3">
-              <span className="text-sm font-semibold">
-                {c.creatorName} &amp; {c.brandName}
+              <span className="text-sm font-semibold">{c.creatorName}</span>
+              <span className="rounded-full border border-line bg-surface px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink-soft">
+                {c.dealType}
               </span>
-              <VerdictBadge verdict={c.outcome} />
             </div>
             <div className="mt-2 flex items-end justify-between">
               <span className="text-xs text-ink-soft">
-                {c.tier} tier / {c.category}
+                {c.tier} tier / {c.niche}
               </span>
               <span className="text-lg font-bold tracking-tight">
                 ₹{c.amountInr.toLocaleString('en-IN')}
