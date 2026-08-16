@@ -353,11 +353,18 @@ export function consolidate(agents: AgentResult[], input: DealInput): Verdict {
 
   // Hard rules. These are deterministic and the narrative layer cannot argue past
   // them — they only ever make the verdict more cautious, never less.
-  let override = { fired: false, rule: '', reason: '', floor: decision }
+  let override: Verdict['override'] = {
+    fired: false,
+    changedOutcome: false,
+    rule: '',
+    reason: '',
+    floor: decision,
+  }
 
   if (!input.brandRegistrationVerified) {
     override = {
       fired: true,
+      changedOutcome: false,
       rule: 'BRAND_LEGITIMACY_UNVERIFIED',
       reason:
         'Brand business registration could not be verified. This forces a hard Reject with no model discretion.',
@@ -366,16 +373,21 @@ export function consolidate(agents: AgentResult[], input: DealInput): Verdict {
   } else if (risk.severity === 'critical') {
     override = {
       fired: true,
+      changedOutcome: false,
       rule: 'RISK_SEVERITY_CRITICAL',
       reason: `Risk & Legitimacy returned severity "critical" (score ${risk.score}), which sets a verdict floor of Negotiate regardless of the other agents.`,
       floor: 'negotiate',
     }
   }
 
-  if (override.fired && RANK[override.floor] > RANK[decision]) {
-    decision = override.floor
-  } else if (override.fired) {
-    override.fired = false // floor was already met; nothing was actually overridden
+  // A rule that matched is reported as fired even when the soft consolidation
+  // had already landed on (or below) its floor. Hiding it in that case would tell
+  // an auditor "no policy concern" about a deal that actually tripped a hard rule —
+  // `changedOutcome` records whether it moved the verdict, which is the separate
+  // question.
+  if (override.fired) {
+    override.changedOutcome = RANK[override.floor] > RANK[decision]
+    if (override.changedOutcome) decision = override.floor
   }
 
   // Council split: two agents at opposite ends, both confident.
@@ -390,17 +402,21 @@ export function consolidate(agents: AgentResult[], input: DealInput): Verdict {
         .join(', ')} oppose. The disagreement is shown rather than averaged away.`
     : ''
 
+  const outcomeCopy: Record<Recommendation, string> = {
+    accept: 'Terms and audience fit both hold up against comparables.',
+    negotiate: 'Workable deal, but specific terms need to move before signing.',
+    reject: 'The economics and risk profile do not justify proceeding.',
+  }
+
   const summary = override.fired
-    ? `${override.reason} Council lean before the rule fired was ${weighted.toFixed(0)}/100.`
+    ? `${override.reason} ${
+        override.changedOutcome
+          ? `The council's own lean was ${weighted.toFixed(0)}/100; the rule raised the verdict to ${decision}.`
+          : `The council had independently landed on ${decision} (lean ${weighted.toFixed(0)}/100), so the rule confirmed rather than changed it.`
+      }`
     : councilSplit
-      ? `The council is split. ${splitReason} Weighted lean ${weighted.toFixed(0)}/100 — proceed with structured negotiation.`
-      : `Council aligned at ${weighted.toFixed(0)}/100. ${
-          decision === 'accept'
-            ? 'Terms and audience fit both hold up against comparables.'
-            : decision === 'negotiate'
-              ? 'Workable deal, but specific terms need to move before signing.'
-              : 'The economics and risk profile do not justify proceeding.'
-        }`
+      ? `The council is split. ${splitReason} Weighted lean ${weighted.toFixed(0)}/100 — ${outcomeCopy[decision]}`
+      : `Council aligned at ${weighted.toFixed(0)}/100. ${outcomeCopy[decision]}`
 
   return { decision, summary, override, councilSplit, splitReason }
 }

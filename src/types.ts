@@ -82,7 +82,10 @@ export interface AgentResult {
 }
 
 export interface PolicyOverride {
+  /** The rule's condition was met. */
   fired: boolean
+  /** The rule actually moved the verdict, rather than agreeing with it. */
+  changedOutcome: boolean
   rule: string
   reason: string
   floor: Recommendation

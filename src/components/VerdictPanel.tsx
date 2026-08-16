@@ -44,6 +44,18 @@ export function VerdictPanel({ verdict }: { verdict: Verdict }) {
               </code>
               . {verdict.override.reason}
             </p>
+            <p className="mt-3 text-xs font-medium">
+              {verdict.override.changedOutcome ? (
+                <span className="text-reject">
+                  This rule changed the verdict — it raised the floor to {verdict.override.floor}.
+                </span>
+              ) : (
+                <span className="text-ink-soft">
+                  The council had already reached this verdict on its own, so the rule confirmed
+                  rather than changed it.
+                </span>
+              )}
+            </p>
             <p className="mt-3 rounded-lg border border-line bg-paper px-3 py-2 text-xs text-ink-soft">
               This is a deterministic policy rule, <strong className="text-ink">not model judgment</strong>.
               The narrative layer cannot argue past it.
