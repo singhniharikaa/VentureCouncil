@@ -1,205 +1,56 @@
-import type { Brand, Comp, Creator, Evaluation } from '../types'
+import { parseCreatorCsv } from './csv'
+import type { Creator } from '../types'
+
+/** Deal types the rate card distinguishes. */
+export const DEAL_TYPES = [
+  { value: 'integration', label: 'Integrated Mention' },
+  { value: 'dedicated', label: 'Dedicated Video' },
+] as const
 
 export const DELIVERABLE_OPTIONS = [
-  'Dedicated Video (YouTube)',
+  'Dedicated Video',
   'Integrated Mention',
-  'Shorts / Reels (x2)',
-  'Instagram Story Set',
+  'Shorts (x2)',
+  'Community Post',
   'Live Stream Segment',
   'Usage Rights (30d)',
 ]
 
 export const BRAND_CATEGORIES = [
-  'Beverages',
-  'Beauty',
   'Gaming Hardware',
-  'Food & Beverage',
-  'Fintech',
-  'Apparel',
-  'EdTech',
   'Mobile Gaming',
+  'Beverages',
+  'Food & Beverage',
+  'Beauty',
+  'Fintech',
+  'EdTech',
+  'Apparel',
+  'Betting',
 ]
 
+/** Canonical niches the roster normalises onto. */
 export const NICHES = [
-  'Gaming',
-  'Entertainment',
-  'Tech',
-  'Lifestyle',
-  'Comedy',
-  'Esports',
+  'gaming',
+  'vlog',
+  'tech',
+  'comedy',
+  'reaction',
+  'finance',
+  'sports',
+  'story',
+  'education',
+  'food',
+  'entertainment',
+  'livestream',
 ]
 
-export const seedCreators: Creator[] = [
-  {
-    id: 'cr_001',
-    handle: 'rohanplays',
-    name: 'Rohan Plays',
-    platform: 'YouTube',
-    niche: 'Gaming',
-    followers: 420_000,
-    engagementRate: 5.8,
-    tier: 'Mid',
-    verified: true,
-    audienceAge18to24: 0.55,
-    audienceMaleShare: 0.78,
-    countryInShare: 0.82,
-    notes: 'Hindi gaming commentary, BGMI and Valorant.',
-  },
-  {
-    id: 'cr_002',
-    handle: 'ishitaunfiltered',
-    name: 'Ishita Unfiltered',
-    platform: 'Instagram',
-    niche: 'Entertainment',
-    followers: 180_000,
-    engagementRate: 3.2,
-    tier: 'Micro',
-    verified: true,
-    audienceAge18to24: 0.4,
-    audienceMaleShare: 0.35,
-    countryInShare: 0.9,
-    notes: 'Comedy skits and lifestyle reels, Mumbai.',
-  },
-  {
-    id: 'cr_003',
-    handle: 'techwitharjun',
-    name: 'TechWithArjun',
-    platform: 'YouTube',
-    niche: 'Tech',
-    followers: 95_000,
-    engagementRate: 7.1,
-    tier: 'Micro',
-    verified: true,
-    audienceAge18to24: 0.3,
-    audienceMaleShare: 0.85,
-    countryInShare: 0.7,
-    notes: 'PC builds and hardware reviews. Small but highly engaged.',
-  },
-  {
-    id: 'cr_004',
-    handle: 'meeravibes',
-    name: 'Meera Vibes',
-    platform: 'Instagram',
-    niche: 'Entertainment',
-    followers: 650_000,
-    engagementRate: 1.4,
-    tier: 'Macro',
-    verified: false,
-    audienceAge18to24: 0.6,
-    audienceMaleShare: 0.3,
-    countryInShare: 0.6,
-    notes: 'Dance and trend reels. Engagement rate low for follower count.',
-  },
-  {
-    id: 'cr_005',
-    handle: 'ggsquad',
-    name: 'GG Squad',
-    platform: 'YouTube',
-    niche: 'Esports',
-    followers: 1_200_000,
-    engagementRate: 4.5,
-    tier: 'Mega',
-    verified: true,
-    audienceAge18to24: 0.5,
-    audienceMaleShare: 0.8,
-    countryInShare: 0.88,
-    notes: 'Group channel, Free Fire and BGMI streams.',
-  },
-  {
-    id: 'cr_006',
-    handle: 'nehacodes',
-    name: 'Neha Codes',
-    platform: 'YouTube',
-    niche: 'Tech',
-    followers: 240_000,
-    engagementRate: 6.2,
-    tier: 'Mid',
-    verified: true,
-    audienceAge18to24: 0.45,
-    audienceMaleShare: 0.6,
-    countryInShare: 0.75,
-    notes: 'Developer tutorials and career content.',
-  },
-]
-
-export const seedBrands: Brand[] = [
-  {
-    id: 'br_001',
-    name: 'Volt Energy Drinks',
-    category: 'Beverages',
-    registrationVerified: true,
-    targetAge18to24: 0.6,
-    targetMaleShare: 0.7,
-  },
-  {
-    id: 'br_002',
-    name: 'Glowly Skincare',
-    category: 'Beauty',
-    registrationVerified: true,
-    targetAge18to24: 0.55,
-    targetMaleShare: 0.25,
-  },
-  {
-    id: 'br_003',
-    name: 'Quickbyte Foods',
-    category: 'Food & Beverage',
-    registrationVerified: false,
-    targetAge18to24: 0.65,
-    targetMaleShare: 0.5,
-  },
-  {
-    id: 'br_004',
-    name: 'Rapid Peripherals',
-    category: 'Gaming Hardware',
-    registrationVerified: true,
-    targetAge18to24: 0.5,
-    targetMaleShare: 0.8,
-  },
-]
-
-/** Historical comparables the Pricing agent retrieves against. */
-export const seedComps: Comp[] = [
-  {
-    id: 'cmp_001',
-    creatorName: 'Rohan Plays',
-    brandName: 'Volt Energy Drinks',
-    tier: 'Mid',
-    category: 'Beverages',
-    amountInr: 150_000,
-    outcome: 'accept',
-    distance: 0.082,
-  },
-  {
-    id: 'cmp_002',
-    creatorName: 'TechWithArjun',
-    brandName: 'Rapid Peripherals',
-    tier: 'Micro',
-    category: 'Gaming Hardware',
-    amountInr: 60_000,
-    outcome: 'accept',
-    distance: 0.114,
-  },
-  {
-    id: 'cmp_003',
-    creatorName: 'Ishita Unfiltered',
-    brandName: 'Glowly Skincare',
-    tier: 'Micro',
-    category: 'Beauty',
-    amountInr: 80_000,
-    outcome: 'negotiate',
-    distance: 0.131,
-  },
-  {
-    id: 'cmp_004',
-    creatorName: 'Meera Vibes',
-    brandName: 'Glowly Skincare',
-    tier: 'Macro',
-    category: 'Beauty',
-    amountInr: 200_000,
-    outcome: 'reject',
-    distance: 0.148,
-  },
-]
-
-/** A couple of completed evaluations so History and Audit Log aren't empty on first load. */
-export const seedEvaluations: Evaluation[] = []
+/**
+ * The roster ships as a CSV in /public and is parsed on first load with the same
+ * parser used for user imports — so seeded rows and imported rows go through
+ * identical normalisation, and there is no second copy of that logic to drift.
+ */
+export async function loadSeedCreators(): Promise<Omit<Creator, 'id'>[]> {
+  const res = await fetch('/creators.csv')
+  if (!res.ok) throw new Error(`Could not load seed roster: ${res.status}`)
+  return parseCreatorCsv(await res.text()).rows
+}

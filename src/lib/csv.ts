@@ -1,79 +1,157 @@
 import Papa from 'papaparse'
-import type { AudienceTier, Creator, Platform } from '../types'
+import type { AudienceTier, ContentFlag, Creator, CreatorSignals } from '../types'
 
 /**
- * CSV import/export for the creator roster.
+ * CSV import for the agency's YouTube creator export.
  *
- * Header matching is case- and space-insensitive and accepts a few common
- * aliases, because real exports from spreadsheets rarely match a spec exactly.
+ * Built against the real column set:
+ *   name, channel_url, channel_handle, integration_price_inr, integration_price_raw,
+ *   dedicated_price_inr, dedicated_price_raw, whatsapp, niche, notes,
+ *   subscriber_count, total_views, video_count, channel_id
+ *
+ * The `whatsapp` column is deliberately NOT imported. It holds personal phone
+ * numbers that play no part in evaluating a deal, and importing them would put
+ * contact details into browser storage and onto every roster screen for no gain.
  */
 
-const ALIASES: Record<string, string> = {
-  handle: 'handle',
-  username: 'handle',
-  creatorhandle: 'handle',
-  name: 'name',
-  creatorname: 'name',
-  fullname: 'name',
-  platform: 'platform',
-  niche: 'niche',
-  category: 'niche',
-  followers: 'followers',
-  followercount: 'followers',
-  subscribers: 'followers',
-  engagementrate: 'engagementRate',
-  engagement: 'engagementRate',
-  er: 'engagementRate',
-  tier: 'tier',
-  audiencetier: 'tier',
-  verified: 'verified',
-  age1824: 'audienceAge18to24',
-  audienceage1824: 'audienceAge18to24',
-  maleshare: 'audienceMaleShare',
-  audiencemaleshare: 'audienceMaleShare',
-  indiashare: 'countryInShare',
-  countryinshare: 'countryInShare',
-  notes: 'notes',
+const SKIPPED_COLUMNS = ['whatsapp']
+
+function num(v: unknown): number {
+  const n = Number(String(v ?? '').replace(/[,\s₹$]/g, ''))
+  return Number.isFinite(n) ? n : 0
 }
 
-const PLATFORMS: Platform[] = ['YouTube', 'Instagram', 'Twitch', 'X']
-const TIERS: AudienceTier[] = ['Nano', 'Micro', 'Mid', 'Macro', 'Mega']
+/** Prices are frequently blank in the source; blank must stay null, not become 0. */
+function priceOrNull(v: unknown): number | null {
+  const raw = String(v ?? '').trim()
+  if (!raw) return null
+  const n = Number(raw.replace(/[,\s₹$]/g, ''))
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+/**
+ * The source niche column is free text with inconsistent spacing and casing —
+ * "gaming, FF", "gaming , FF" and "gaming, ff" are all the same thing. This
+ * folds them onto a canonical niche plus an optional sub-genre.
+ */
+const NICHE_RULES: { match: RegExp; niche: string }[] = [
+  { match: /gaming|bgmi|\bff\b|free ?fire|minecraft|gta|roblox|\bcoc\b|clash/i, niche: 'gaming' },
+  { match: /vlog/i, niche: 'vlog' },
+  { match: /tech/i, niche: 'tech' },
+  { match: /comedy|roast|prank/i, niche: 'comedy' },
+  { match: /react/i, niche: 'reaction' },
+  { match: /earning|finance|money/i, niche: 'finance' },
+  { match: /cricket|sport/i, niche: 'sports' },
+  { match: /story|storytell/i, niche: 'story' },
+  { match: /science|educat/i, niche: 'education' },
+  { match: /food/i, niche: 'food' },
+  { match: /entertainment|telugu|bangla|bangali|nepali|regional/i, niche: 'entertainment' },
+  { match: /live ?stream|omegle/i, niche: 'livestream' },
+]
+
+const SUB_NICHE = /\b(ff|free ?fire|bgmi|gta|roblox|minecraft|coc)\b/i
+
+export function normaliseNiche(raw: string): { niche: string; subNiche: string } {
+  const text = (raw ?? '').trim()
+  if (!text) return { niche: '', subNiche: '' }
+
+  const rule = NICHE_RULES.find((r) => r.match.test(text))
+  const sub = text.match(SUB_NICHE)?.[1] ?? ''
+  return {
+    niche: rule?.niche ?? text.toLowerCase().replace(/\s+/g, ' ').trim(),
+    subNiche: sub ? sub.toUpperCase().replace(/\s+/g, '') : '',
+  }
+}
+
+/**
+ * The notes column doubles as a brand-safety marker. Betting content carries real
+ * regulatory exposure in India, so it is lifted into a typed field rather than
+ * left buried in free text.
+ */
+export function readContentFlag(notes: string): ContentFlag {
+  const t = (notes ?? '').trim().toLowerCase()
+  if (!t) return 'unknown'
+  if (/^(both|all)$/.test(t)) return 'both'
+  if (/non[-\s]?bet/.test(t)) return 'non-betting'
+  if (/bet/.test(t)) return 'betting'
+  return 'unknown'
+}
+
+export function tierFromSubscribers(subs: number): AudienceTier {
+  if (subs < 10_000) return 'Nano'
+  if (subs < 100_000) return 'Micro'
+  if (subs < 500_000) return 'Mid'
+  if (subs < 1_000_000) return 'Macro'
+  return 'Mega'
+}
+
+/** Reach signals derived from the three count columns the export always carries. */
+export function creatorSignals(c: Creator): CreatorSignals {
+  const hasReachData = c.videoCount > 0 && c.subscriberCount > 0
+  const avgViewsPerVideo = c.videoCount > 0 ? c.totalViews / c.videoCount : 0
+  return {
+    tier: tierFromSubscribers(c.subscriberCount),
+    avgViewsPerVideo,
+    viewThroughRate: hasReachData ? avgViewsPerVideo / c.subscriberCount : 0,
+    hasReachData,
+  }
+}
+
+const HEADER_ALIASES: Record<string, string> = {
+  name: 'name',
+  creatorname: 'name',
+  channelurl: 'channelUrl',
+  url: 'channelUrl',
+  channelhandle: 'handle',
+  handle: 'handle',
+  username: 'handle',
+  channelid: 'channelId',
+  integrationpriceinr: 'integrationPriceInr',
+  integrationprice: 'integrationPriceInr',
+  dedicatedpriceinr: 'dedicatedPriceInr',
+  dedicatedprice: 'dedicatedPriceInr',
+  niche: 'niche',
+  category: 'niche',
+  notes: 'notes',
+  subscribercount: 'subscriberCount',
+  subscribers: 'subscriberCount',
+  followers: 'subscriberCount',
+  totalviews: 'totalViews',
+  views: 'totalViews',
+  videocount: 'videoCount',
+  videos: 'videoCount',
+}
 
 function normaliseKey(k: string) {
   return k.toLowerCase().replace(/[^a-z0-9]/g, '')
-}
-
-function toNumber(v: unknown, fallback = 0) {
-  const n = Number(String(v ?? '').replace(/[,\s%₹$]/g, ''))
-  return Number.isFinite(n) ? n : fallback
-}
-
-/** Accepts 0-1 or 0-100 and always returns a 0-1 share. */
-function toShare(v: unknown, fallback = 0.5) {
-  const n = toNumber(v, NaN)
-  if (!Number.isFinite(n)) return fallback
-  return n > 1 ? Math.min(n / 100, 1) : Math.max(n, 0)
-}
-
-function tierFromFollowers(followers: number): AudienceTier {
-  if (followers < 10_000) return 'Nano'
-  if (followers < 100_000) return 'Micro'
-  if (followers < 500_000) return 'Mid'
-  if (followers < 1_000_000) return 'Macro'
-  return 'Mega'
 }
 
 export interface ParseReport {
   rows: Omit<Creator, 'id'>[]
   skipped: number
   problems: string[]
+  /** Coverage counts, so the operator sees what the data cannot support. */
+  coverage: {
+    total: number
+    withNiche: number
+    withIntegrationPrice: number
+    withDedicatedPrice: number
+    withReachData: number
+    betting: number
+  }
+  droppedColumns: string[]
 }
 
 export function parseCreatorCsv(text: string): ParseReport {
+  const seenHeaders: string[] = []
   const parsed = Papa.parse<Record<string, string>>(text, {
     header: true,
     skipEmptyLines: true,
-    transformHeader: (h) => ALIASES[normaliseKey(h)] ?? normaliseKey(h),
+    transformHeader: (h) => {
+      const key = normaliseKey(h)
+      seenHeaders.push(key)
+      return HEADER_ALIASES[key] ?? key
+    },
   })
 
   const problems: string[] = []
@@ -85,81 +163,101 @@ export function parseCreatorCsv(text: string): ParseReport {
   let skipped = 0
 
   for (const [i, raw] of (parsed.data ?? []).entries()) {
+    const name = String(raw.name ?? '').trim()
     const handle = String(raw.handle ?? '').trim().replace(/^@/, '')
-    const name = String(raw.name ?? '').trim() || handle
 
-    if (!handle) {
+    if (!name && !handle) {
       skipped += 1
-      if (problems.length < 6) problems.push(`Row ${i + 2}: no handle, skipped.`)
+      if (problems.length < 6) problems.push(`Row ${i + 2}: no name or handle, skipped.`)
       continue
     }
 
-    const followers = toNumber(raw.followers)
-    const platformRaw = String(raw.platform ?? '').trim()
-    const platform =
-      PLATFORMS.find((p) => p.toLowerCase() === platformRaw.toLowerCase()) ?? 'YouTube'
-    const tierRaw = String(raw.tier ?? '').trim()
-    const tier = TIERS.find((t) => t.toLowerCase() === tierRaw.toLowerCase()) ?? tierFromFollowers(followers)
+    const nicheRaw = String(raw.niche ?? '').trim()
+    const { niche, subNiche } = normaliseNiche(nicheRaw)
+    const notes = String(raw.notes ?? '').trim()
 
     rows.push({
-      handle,
-      name,
-      platform,
-      niche: String(raw.niche ?? '').trim() || 'Gaming',
-      followers,
-      engagementRate: toNumber(raw.engagementRate, 0),
-      tier,
-      verified: /^(true|yes|y|1)$/i.test(String(raw.verified ?? '')),
-      audienceAge18to24: toShare(raw.audienceAge18to24, 0.5),
-      audienceMaleShare: toShare(raw.audienceMaleShare, 0.5),
-      countryInShare: toShare(raw.countryInShare, 0.8),
-      notes: String(raw.notes ?? '').trim() || undefined,
+      name: name || handle,
+      handle: handle || name,
+      channelUrl: String(raw.channelUrl ?? '').trim(),
+      channelId: String(raw.channelId ?? '').trim(),
+      niche,
+      subNiche,
+      nicheRaw,
+      contentFlag: readContentFlag(notes),
+      subscriberCount: num(raw.subscriberCount),
+      totalViews: num(raw.totalViews),
+      videoCount: num(raw.videoCount),
+      integrationPriceInr: priceOrNull(raw.integrationPriceInr),
+      dedicatedPriceInr: priceOrNull(raw.dedicatedPriceInr),
+      notes,
     })
   }
 
-  return { rows, skipped, problems }
+  const coverage = {
+    total: rows.length,
+    withNiche: rows.filter((r) => r.niche).length,
+    withIntegrationPrice: rows.filter((r) => r.integrationPriceInr !== null).length,
+    withDedicatedPrice: rows.filter((r) => r.dedicatedPriceInr !== null).length,
+    withReachData: rows.filter((r) => r.videoCount > 0 && r.subscriberCount > 0).length,
+    betting: rows.filter((r) => r.contentFlag === 'betting').length,
+  }
+
+  const droppedColumns = SKIPPED_COLUMNS.filter((c) => seenHeaders.includes(c))
+
+  return { rows, skipped, problems, coverage, droppedColumns }
 }
 
-export const CSV_TEMPLATE_HEADERS = [
-  'handle',
+const EXPORT_HEADERS = [
   'name',
-  'platform',
+  'channel_handle',
+  'channel_url',
+  'channel_id',
   'niche',
-  'followers',
-  'engagement_rate',
-  'tier',
-  'verified',
-  'audience_age_18_24',
-  'audience_male_share',
-  'country_in_share',
   'notes',
+  'subscriber_count',
+  'total_views',
+  'video_count',
+  'integration_price_inr',
+  'dedicated_price_inr',
 ]
 
 export function creatorsToCsv(creators: Creator[]): string {
   return Papa.unparse({
-    fields: CSV_TEMPLATE_HEADERS,
+    fields: EXPORT_HEADERS,
     data: creators.map((c) => [
-      c.handle,
       c.name,
-      c.platform,
-      c.niche,
-      c.followers,
-      c.engagementRate,
-      c.tier,
-      c.verified,
-      c.audienceAge18to24,
-      c.audienceMaleShare,
-      c.countryInShare,
-      c.notes ?? '',
+      c.handle,
+      c.channelUrl,
+      c.channelId,
+      c.nicheRaw || c.niche,
+      c.notes,
+      c.subscriberCount,
+      c.totalViews,
+      c.videoCount,
+      c.integrationPriceInr ?? '',
+      c.dedicatedPriceInr ?? '',
     ]),
   })
 }
 
 export function csvTemplate(): string {
   return Papa.unparse({
-    fields: CSV_TEMPLATE_HEADERS,
+    fields: EXPORT_HEADERS,
     data: [
-      ['rohanplays', 'Rohan Plays', 'YouTube', 'Gaming', 420000, 5.8, 'Mid', 'true', 0.55, 0.78, 0.82, 'Hindi gaming commentary'],
+      [
+        'Tech Series',
+        'techseries5392',
+        'https://www.youtube.com/@techseries5392',
+        'UCpzPENOZcyAsKD6aBK0FLAw',
+        'tech',
+        'non betting',
+        3910000,
+        4836877,
+        72,
+        35000,
+        50000,
+      ],
     ],
   })
 }
