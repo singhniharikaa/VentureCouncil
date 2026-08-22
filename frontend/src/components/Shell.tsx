@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { ArrowCircle } from './ui'
+import { useEngine } from '../lib/api'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon, end: true },
@@ -9,6 +10,34 @@ const NAV = [
   { to: '/audit', label: 'Audit Logs', icon: LogIcon },
   { to: '/creators', label: 'Creators', icon: VaultIcon },
 ]
+
+/**
+ * States where evaluation actually happens. This used to be a hardcoded
+ * "runs locally / no deal data leaves this machine" note — which stopped
+ * being true the moment the Python engine was wired in, since deal and
+ * creator details are sent to the LLM provider. Claiming otherwise in the
+ * chrome of the app would be a straightforward falsehood, so it now reports
+ * the live state.
+ */
+function EngineFootnote() {
+  const engine = useEngine()
+  if (engine.status === 'live') {
+    return (
+      <div className="mt-auto px-1 text-[11px] leading-relaxed text-ink-faint">
+        Engine: <span className="text-ink-soft">{engine.health.provider}</span>
+        <br />
+        Deal details are sent to the model provider.
+      </div>
+    )
+  }
+  return (
+    <div className="mt-auto px-1 text-[11px] leading-relaxed text-ink-faint">
+      {engine.status === 'checking' ? 'Locating engine…' : 'Offline — local scoring only.'}
+      <br />
+      {engine.status === 'offline' && 'No model in use; no data leaves this machine.'}
+    </div>
+  )
+}
 
 export function Shell({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
@@ -57,11 +86,7 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <div className="mt-auto px-1 text-[11px] leading-relaxed text-ink-faint">
-          Council runs locally.
-          <br />
-          No deal data leaves this machine.
-        </div>
+        <EngineFootnote />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

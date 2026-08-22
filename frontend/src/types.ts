@@ -1,18 +1,20 @@
 export type AudienceTier = 'Nano' | 'Micro' | 'Mid' | 'Macro' | 'Mega'
 
-/** Brand-safety classification, read from the roster's notes column. */
-export type ContentFlag = 'betting' | 'non-betting' | 'both' | 'unknown'
-
 /**
  * Mirrors the columns actually present in the agency's creator export.
  * Nothing here is invented — fields the source data does not carry (audience
  * demographics, engagement rate) are deliberately absent, and the agents that
  * would have used them take an "insufficient data" path instead of guessing.
  */
+export type Platform = 'youtube' | 'instagram'
+
 export interface Creator {
   id: string
   name: string
   handle: string
+  /** Which platform the creator is on. Supabase carries both; the legacy CSV
+   *  was YouTube-only, so rows parsed from CSV default to 'youtube'. */
+  platform: Platform
   channelUrl: string
   channelId: string
   /** Normalised niche, e.g. "gaming". Empty string when the source row had none. */
@@ -21,13 +23,22 @@ export interface Creator {
   subNiche: string
   /** Original niche text, kept so an operator can see what was normalised. */
   nicheRaw: string
-  contentFlag: ContentFlag
   subscriberCount: number
   totalViews: number
   videoCount: number
   /** Rate card, in INR. Null when the source row had no price. */
   integrationPriceInr: number | null
   dedicatedPriceInr: number | null
+  /** Follower count under a platform-neutral name. Mirrors subscriberCount. */
+  followersCount?: number
+  /** Present for most Instagram rows and all YouTube rows in Supabase. */
+  engagementRate?: number | null
+  /** The engine's single working price, whichever deal type it came from. */
+  priceInr?: number | null
+  /** True when the price was KNN-estimated rather than quoted by the agency. */
+  priceEstimated?: boolean
+  /** 0-100. +25 each for niche, real price, engagement rate, contact on file. */
+  dataConfidenceScore?: number | null
   notes: string
 }
 
@@ -51,8 +62,6 @@ export interface DealInput {
   exclusivityClause: string
   contractText: string
   brandRegistrationVerified: boolean
-  /** Whether the brand operates in a betting/gambling category. */
-  brandIsBetting: boolean
 }
 
 export type AgentId = 'audience_fit' | 'engagement' | 'pricing' | 'risk' | 'negotiation'
@@ -117,6 +126,14 @@ export interface Comp {
 
 export interface Evaluation {
   id: string
+  /** Which engine produced this verdict.
+   *  'live'  = the Python engine: five LLM agents over the Supabase roster.
+   *  'local' = the in-browser rule-based fallback, no model involved.
+   *  Undefined on records saved before this was tracked (2026-08-22).
+   *  These are not comparable, so history must not present them alike. */
+  engine?: 'live' | 'local'
+  /** provider/model that ran it, e.g. "groq/openai/gpt-oss-120b". */
+  model?: string
   dealRef: string
   createdAt: string
   creatorId: string

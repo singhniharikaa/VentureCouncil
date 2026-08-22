@@ -2,12 +2,50 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { runCouncil } from '../lib/council'
 import type { CouncilProgress } from '../lib/council'
+import { evaluateDeal, useEngine } from '../lib/api'
 import { useStore } from '../lib/store'
 import { AgentCard } from '../components/AgentCard'
+import { CouncilGraph } from '../components/CouncilGraph'
 import { DebateView } from '../components/DebateView'
 import { CompExplorer, VerdictPanel } from '../components/VerdictPanel'
 import { Card, EmptyState, PillButton, VerdictBadge } from '../components/ui'
-import type { AgentResult, DealInput, Evaluation, Recommendation } from '../types'
+import type { AgentId, AgentResult, DealInput, Evaluation, Recommendation } from '../types'
+
+const ENGINE_LABELS: Record<AgentId, string> = {
+  audience_fit: 'Audience Fit',
+  engagement: 'Engagement',
+  pricing: 'Pricing',
+  risk: 'Risk & Legitimacy',
+  negotiation: 'Negotiation',
+}
+
+/**
+ * Placeholder agents shown while the engine is working.
+ *
+ * A single POST gives no intermediate states, so all four upstream agents are
+ * shown as thinking together (which is what actually happens — the LangGraph
+ * fan-out runs them concurrently) and land together when the response
+ * arrives. Nothing here is a fabricated per-agent timeline; the real measured
+ * latencies come back on the response and are displayed then.
+ */
+function enginePending(): AgentResult[] {
+  return (Object.keys(ENGINE_LABELS) as AgentId[]).map((id) => ({
+    id,
+    label: ENGINE_LABELS[id],
+    status: id === 'negotiation' ? 'pending' : 'running',
+    score: 0,
+    confidence: 0,
+    recommendation: 'negotiate',
+    headline: '',
+    reasoning: '',
+    flags: [],
+    insufficientData: false,
+    trace: [],
+    typed: {},
+    latencyMs: 0,
+    model: '',
+  }))
+}
 
 export function DealRoom() {
   const location = useLocation()
@@ -17,25 +55,54 @@ export function DealRoom() {
   const input = (location.state as { input?: DealInput } | null)?.input
   const [progress, setProgress] = useState<CouncilProgress | null>(null)
   const savedId = useRef<string | null>(null)
+  // Replaying re-runs the council for the visualisation only. The council is
+  // deterministic, so a replay produces identical findings — it must not write
+  // a second history record.
+  const [runKey, setRunKey] = useState(0)
+  const savedOnce = useRef(false)
+  const engine = useEngine()
+  const [engineError, setEngineError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!input) return
+    if (engine.status === 'checking') return // wait: which engine runs this?
     const creator = creators.find((c) => c.id === input.creatorId)
     if (!creator) return
 
-    savedId.current = `ev_${Date.now().toString(36)}`
-    const cancel = runCouncil(input, creator, creators, setProgress)
-    return cancel
+    if (!savedId.current) savedId.current = `ev_${Date.now().toString(36)}`
+    setEngineError(null)
+
+    // Engine down: fall back to the local TypeScript council so the UI still
+    // works, but the banner says plainly that no model was involved.
+    if (engine.status === 'offline') {
+      setProgress(null)
+      return runCouncil(input, creator, creators, setProgress)
+    }
+
+    let cancelled = false
+    setProgress({ agents: enginePending(), verdict: null, comps: [], done: false })
+    evaluateDeal(input)
+      .then((res) => {
+        if (cancelled) return
+        setProgress({ agents: res.agents, verdict: res.verdict, comps: res.comps, done: true })
+      })
+      .catch((e) => {
+        if (!cancelled) setEngineError(String(e?.message ?? e))
+      })
+    return () => {
+      cancelled = true
+    }
     // Re-running only when the submitted deal changes is intentional; creators
     // updating mid-run should not restart the council.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input])
+  }, [input, runKey, engine.status])
 
   // Persist once the run completes so History and Audit Log pick it up.
   useEffect(() => {
-    if (!progress?.done || !input || !savedId.current) return
+    if (!progress?.done || !input || !savedId.current || savedOnce.current) return
     const creator = creators.find((c) => c.id === input.creatorId)
     if (!creator) return
+    savedOnce.current = true
     const record: Evaluation = {
       id: savedId.current,
       dealRef: `#${savedId.current.slice(-5).toUpperCase()}`,
@@ -47,6 +114,11 @@ export function DealRoom() {
       amountInr: input.amountInr,
       dealType: input.dealType,
       deliverables: input.deliverables,
+      engine: engine.status === 'live' ? 'live' : 'local',
+      model:
+        engine.status === 'live'
+          ? `${engine.health.provider}/${engine.health.model}`
+          : 'council-local (no model)',
       agents: progress.agents,
       verdict: progress.verdict,
       comps: progress.comps,
@@ -56,7 +128,7 @@ export function DealRoom() {
     }
     saveEvaluation(record)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progress?.done])
+  }, [progress?.done, engine.status])
 
   if (!input) {
     const recent = evaluations[0]
@@ -108,7 +180,7 @@ export function DealRoom() {
   const doneCount = agents.filter((a) => a.status === 'done').length
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-[1400px]">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="min-w-0">
           <div className="eyebrow flex items-center gap-2">
@@ -155,9 +227,21 @@ export function DealRoom() {
         </div>
       )}
 
+      <EngineBanner engine={engine} error={engineError} />
+
+      <section className="mt-9">
+        <h2 className="eyebrow mb-4">Live council trace</h2>
+        <CouncilGraph
+          agents={agents}
+          verdict={verdict}
+          amountInr={input.amountInr}
+          onReplay={() => setRunKey((k) => k + 1)}
+        />
+      </section>
+
       <section className="mt-9">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="eyebrow">Live council trace</h2>
+          <h2 className="eyebrow">Agent findings</h2>
           <span className="mono text-xs text-ink-faint">{doneCount}/5 complete</span>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -325,5 +409,53 @@ function PulseIcon() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="M1 8h3l2-4 3 8 2-4h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  )
+}
+
+
+/**
+ * States plainly which engine produced the verdict on screen. The two differ
+ * in kind, not just in quality: one is five LLM agents over the full Supabase
+ * roster, the other is local arithmetic over a stale CSV snapshot.
+ */
+function EngineBanner({
+  engine,
+  error,
+}: {
+  engine: ReturnType<typeof useEngine>
+  error: string | null
+}) {
+  if (error) {
+    return (
+      <Card className="mt-6 border-reject/30 bg-reject-bg p-4 text-sm">
+        <strong>Engine call failed.</strong> {error}
+        <div className="mt-1 text-ink-soft">
+          Check the API is running: <code className="mono">python -m uvicorn api.server:app --port 8000</code>
+        </div>
+      </Card>
+    )
+  }
+  if (engine.status === 'checking') {
+    return (
+      <Card className="mt-6 p-4 text-sm text-ink-soft">Checking for the evaluation engine…</Card>
+    )
+  }
+  if (engine.status === 'offline') {
+    return (
+      <Card className="mt-6 border-negotiate/30 bg-negotiate-bg p-4 text-sm">
+        <strong>Offline mode — no AI model was used.</strong> The Python engine is not
+        reachable, so this verdict comes from the local rule-based council scoring a
+        282-row YouTube-only CSV snapshot. Instagram creators and the real agents are
+        unavailable until the engine is started.
+      </Card>
+    )
+  }
+  return (
+    <Card className="mt-6 border-accept/30 bg-accept-bg p-4 text-sm">
+      <strong>Live engine.</strong> Evaluated by five {engine.health.provider} agents (
+      <span className="mono">{engine.health.model}</span>) over{' '}
+      {engine.health.creators.toLocaleString('en-IN')} Supabase creators, with comparables
+      retrieved by pgvector similarity search.
+    </Card>
   )
 }

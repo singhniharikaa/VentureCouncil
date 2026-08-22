@@ -4,8 +4,14 @@
     {
       "name": "vc-ui",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
       "port": 5174
+    },
+    {
+      "name": "vc-api",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "api.server:app", "--port", "8000"],
+      "port": 8000
     }
   ]
 }

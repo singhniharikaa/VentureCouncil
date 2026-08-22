@@ -15,10 +15,15 @@ import { creatorSignals, tierFromSubscribers } from './csv'
  * Local council engine.
  *
  * Every score is computed from columns the roster actually carries — subscriber
- * count, total views, video count, the creator's own rate card, niche, and the
- * betting/non-betting marker. Where the source data has nothing to say, the
- * agent returns `insufficientData` and drops its confidence rather than
- * inventing a number.
+ * count, total views, video count, the creator's own rate card, and niche.
+ * Where the source data has nothing to say, the agent returns
+ * `insufficientData` and drops its confidence rather than inventing a number.
+ *
+ * Betting / non-betting classification was deliberately removed (2026-08-22):
+ * coverage in the source roster is far too sparse to be reliable — 216 of 282
+ * rows carry no notes value at all — so it was dropped here to match the same
+ * decision already recorded for the Python engine. Do not reintroduce it
+ * without new data.
  */
 
 const RED_FLAG_PATTERNS: { pattern: RegExp; label: string; weight: number; critical?: boolean }[] = [
@@ -41,7 +46,6 @@ const CATEGORY_NICHE_FIT: Record<string, string[]> = {
   Fintech: ['finance', 'tech', 'education'],
   EdTech: ['education', 'tech', 'finance'],
   Apparel: ['vlog', 'entertainment', 'comedy', 'gaming'],
-  Betting: ['gaming', 'sports', 'livestream'],
 }
 
 const AGENT_LABELS: Record<AgentId, string> = {
@@ -364,7 +368,7 @@ function runPricing(creator: Creator, input: DealInput, comps: Comp[], t0: numbe
   }
 }
 
-function runRisk(creator: Creator, input: DealInput, t0: number): AgentResult {
+function runRisk(_creator: Creator, input: DealInput, t0: number): AgentResult {
   const haystack = `${input.contractText} ${input.exclusivityClause}`
   const hits = RED_FLAG_PATTERNS.filter((p) => p.pattern.test(haystack))
 
@@ -379,19 +383,8 @@ function runRisk(creator: Creator, input: DealInput, t0: number): AgentResult {
   if (uncompensatedExclusivity) flags.push('Exclusivity with no stated compensation')
   if (!input.brandRegistrationVerified) flags.push('Brand business registration unverified')
 
-  // Brand-safety conflict, read from the roster's betting marker.
-  const bettingConflict = input.brandIsBetting && creator.contentFlag === 'non-betting'
-  if (bettingConflict) {
-    risk += 35
-    flags.push('Betting brand against a creator marked non-betting')
-  }
-  if (input.brandIsBetting && creator.contentFlag === 'unknown') {
-    risk += 10
-    flags.push('Betting brand, creator betting stance unrecorded')
-  }
-
   risk = clamp(risk)
-  const hasCritical = hits.some((h) => h.critical) || uncompensatedExclusivity || bettingConflict
+  const hasCritical = hits.some((h) => h.critical) || uncompensatedExclusivity
   const severity: Severity =
     risk >= 70 && hasCritical ? 'critical' : risk >= 55 ? 'high' : risk >= 30 ? 'medium' : 'low'
 
@@ -403,14 +396,13 @@ function runRisk(creator: Creator, input: DealInput, t0: number): AgentResult {
     headline: `Risk ${risk}/100 · ${severity}`,
     reasoning: flags.length
       ? `Found ${flags.length} issue(s): ${flags.join('; ')}. Composite risk ${risk} (${severity}).`
-      : `No red-flag clause patterns matched, the brand's registration is verified, and there is no ` +
-        `betting conflict. Composite risk ${risk} (${severity}).`,
+      : `No red-flag clause patterns matched and the brand's registration is verified. ` +
+        `Composite risk ${risk} (${severity}).`,
     severity,
     flags,
     trace: [
       { t: stamp(t0, 140), text: `Matching clauses against red-flag reference library.` },
       { t: stamp(t0, 400), text: `${hits.length} pattern match(es).` },
-      { t: stamp(t0, 540), text: `Creator content marker: ${creator.contentFlag}.` },
       ...flags.slice(0, 3).map((f, i) => ({
         t: stamp(t0, 680 + i * 70),
         text: `FLAG: ${f}`,
@@ -426,8 +418,6 @@ function runRisk(creator: Creator, input: DealInput, t0: number): AgentResult {
       risk_score: risk,
       clause_flags: flags,
       brand_legitimacy_flag: input.brandRegistrationVerified,
-      content_flag: creator.contentFlag,
-      betting_conflict: bettingConflict,
       severity,
     },
     latencyMs: 1180,
@@ -448,7 +438,6 @@ function runNegotiation(pricing: AgentResult, risk: AgentResult, input: DealInpu
   if (risk.flags.some((f) => /Exclusivity with no stated compensation/i.test(f))) asks.push('add explicit exclusivity compensation')
   if (risk.flags.some((f) => /Net-60/i.test(f))) asks.push('shorten payment terms to Net-30')
   if (risk.flags.some((f) => /kill fee/i.test(f))) asks.push('add a 50% kill fee')
-  if (risk.flags.some((f) => /Betting brand/i.test(f))) asks.push('confirm the creator accepts betting-category work')
 
   const pushback = clamp((reference !== null && deviation < -10 ? 45 : 12) + risk.score * 0.5)
   const walkAway = reference !== null ? Math.round(reference * 0.85) : null
@@ -489,7 +478,7 @@ function runNegotiation(pricing: AgentResult, risk: AgentResult, input: DealInpu
 
 const RANK: Record<Recommendation, number> = { accept: 0, negotiate: 1, reject: 2 }
 
-export function consolidate(agents: AgentResult[], creator: Creator, input: DealInput): Verdict {
+export function consolidate(agents: AgentResult[], _creator: Creator, input: DealInput): Verdict {
   const risk = agents.find((a) => a.id === 'risk')!
   const pricing = agents.find((a) => a.id === 'pricing')!
   const audience = agents.find((a) => a.id === 'audience_fit')!
@@ -525,14 +514,6 @@ export function consolidate(agents: AgentResult[], creator: Creator, input: Deal
       changedOutcome: false,
       rule: 'BRAND_LEGITIMACY_UNVERIFIED',
       reason: 'Brand business registration could not be verified. This forces a hard Reject with no model discretion.',
-      floor: 'reject',
-    }
-  } else if (input.brandIsBetting && creator.contentFlag === 'non-betting') {
-    override = {
-      fired: true,
-      changedOutcome: false,
-      rule: 'BETTING_BRAND_CONFLICT',
-      reason: `${creator.name} is marked non-betting in the roster, and this is a betting-category brand. This forces a hard Reject.`,
       floor: 'reject',
     }
   } else if (risk.severity === 'critical') {

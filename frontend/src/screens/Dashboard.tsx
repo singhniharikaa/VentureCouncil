@@ -107,7 +107,7 @@ export function Dashboard() {
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-line text-left">
-                  {['Creator', 'Brand', 'Amount', 'Verdict', 'Trigger', 'Date'].map((h) => (
+                  {['Creator', 'Brand', 'Amount', 'Verdict', 'Engine', 'Trigger', 'Date'].map((h) => (
                     <th key={h} className="eyebrow px-5 py-3 font-semibold">
                       {h}
                     </th>
@@ -128,6 +128,23 @@ export function Dashboard() {
                     </td>
                     <td className="px-5 py-4">
                       {e.verdict ? <VerdictBadge verdict={e.verdict.decision} /> : '—'}
+                    </td>
+                    <td className="px-5 py-4">
+                      {e.engine === 'live' ? (
+                        <span
+                          className="rounded-full border border-accept/30 bg-accept-bg px-2 py-0.5 text-[10px] uppercase tracking-wider text-accept"
+                          title={e.model}
+                        >
+                          AI agents
+                        </span>
+                      ) : (
+                        <span
+                          className="rounded-full border border-line bg-paper px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink-faint"
+                          title={e.model ?? 'Local rule-based scoring, no model involved'}
+                        >
+                          {e.engine === 'local' ? 'local rules' : 'unknown'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       {e.verdict?.override.fired ? (

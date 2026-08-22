@@ -97,9 +97,52 @@ body {
   animation: pulse-soft 1.4s ease-in-out infinite;
 }
 
+/* Council graph: payload packets travelling along the SVG edges, the dashed
+   "live edge" crawl, the halo on a thinking agent, and the verdict reveal. */
+@keyframes flow {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+
+@keyframes dash {
+  to { stroke-dashoffset: -24; }
+}
+
+@keyframes halo {
+  0%   { box-shadow: 0 0 0 0 rgba(10, 10, 10, 0.16); }
+  70%  { box-shadow: 0 0 0 14px rgba(10, 10, 10, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(10, 10, 10, 0); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.edge-live {
+  animation: dash 0.9s linear infinite;
+}
+
+.node-halo {
+  animation: halo 1.8s ease-out infinite;
+}
+
+.rise-in {
+  animation: rise 0.4s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .trace-line,
-  .pulse-soft {
+  .pulse-soft,
+  .edge-live,
+  .node-halo,
+  .rise-in {
     animation: none;
+  }
+  /* Packets are positioned by offset-distance; with motion off, park them at
+     the destination rather than leaving them stacked at the origin. */
+  .packet {
+    animation: none !important;
+    offset-distance: 100% !important;
   }
 }

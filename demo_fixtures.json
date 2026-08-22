@@ -1,0 +1,141 @@
+{
+  "_note": "Recorded from real live runs by demo.py --record. Used by demo.py --offline so a demo never depends on API quota or network.",
+  "Bulky|35000": {
+    "creator": {
+      "creator_id": 43,
+      "creator_name": "Bulky",
+      "platform": "youtube",
+      "niche": "gaming",
+      "followers_count": 302000,
+      "engagement_rate": 2.94,
+      "price_inr": 30000,
+      "price_estimated": false,
+      "data_confidence_score": 100
+    },
+    "recorded_provider": "groq",
+    "recorded_model": "openai/gpt-oss-120b",
+    "recorded_at": "2026-08-22 10:37:01",
+    "audience_fit_result": {
+      "score": 85,
+      "verdict_component": "strong fit",
+      "reasoning": "The creator\u2019s gaming focus and YouTube presence directly match the brand\u2019s target niche and preferred platform, ensuring relevant audience exposure. With 302,000 followers, the creator has a sizable, engaged community that is sufficient for brand collaborations without being too large to dilute impact.",
+      "confidence": 0.92
+    },
+    "engagement_result": {
+      "score": 37,
+      "verdict_component": "weak engagement",
+      "reasoning": "The creator sits at the 37.1th percentile among YouTube peers, meaning they outperform only about a third of comparable creators. This placement below the median suggests weak engagement relative to platform norms.",
+      "confidence": 0.9
+    },
+    "pricing_result": {
+      "score": 70,
+      "verdict_component": "fair",
+      "reasoning": "The 30,000\u202fRs accepted deal for a similar 1\u2011integration video shows the baseline, and the 45,000\u202fRs negotiated deal indicates higher willingness; at 35,000\u202fRs the offer sits modestly above the baseline yet well below the higher negotiated amounts, fitting the brand\u2019s 25\u201140\u202fk budget. This makes the price appear fair.",
+      "confidence": 0.85
+    },
+    "risk_result": {
+      "score": 95,
+      "verdict_component": "low risk",
+      "reasoning": "The creator's data confidence is perfect and the price per follower (Rs\u202f0.1159) falls well within the expected range, indicating a reasonable deal. No red flags are present in the contract details.",
+      "confidence": 0.98
+    },
+    "negotiation_result": {
+      "score": 100,
+      "verdict_component": "no negotiation needed",
+      "reasoning": "The Rs.35,000 offer sits comfortably within the brand's Rs.25,000\u2011Rs.40,000 budget and aligns with the fair pricing assessment based on comparable deals. No adjustment to price or deliverable is required.",
+      "confidence": 0.97
+    }
+  },
+  "Chirag Sajnani|6000": {
+    "creator": {
+      "creator_id": 280,
+      "creator_name": "Chirag Sajnani",
+      "platform": "instagram",
+      "niche": "Fashion",
+      "followers_count": 37112,
+      "engagement_rate": 4.606380685,
+      "price_inr": 5000,
+      "price_estimated": false,
+      "data_confidence_score": 100
+    },
+    "recorded_provider": "groq",
+    "recorded_model": "openai/gpt-oss-120b",
+    "recorded_at": "2026-08-22 10:37:43",
+    "audience_fit_result": {
+      "score": 30,
+      "verdict_component": "weak fit",
+      "reasoning": "The creator\u2019s audience is primarily interested in fashion, which does not align with GameFuel\u2019s gaming\u2011focused target, reducing relevance. Although both operate on Instagram and the 37k followers provide a modest reach, the niche mismatch makes the partnership unlikely to resonate.",
+      "confidence": 0.85
+    },
+    "engagement_result": {
+      "score": 75,
+      "verdict_component": "strong engagement",
+      "reasoning": "The creator sits in the 74.7th percentile among Instagram peers, meaning they outperform roughly three\u2011quarters of comparable accounts. This places them well above the platform average, indicating strong engagement.",
+      "confidence": 0.92
+    },
+    "pricing_result": {
+      "score": 30,
+      "verdict_component": "underpriced",
+      "reasoning": "Comparable deals for creators with similar reach fetched Rs.7,000\u2013Rs.15,000 for 1\u20112 integrations and were accepted, indicating a market rate well above Rs.6,000. The proposed amount is therefore below typical pricing for this niche and follower count.",
+      "confidence": 0.78
+    },
+    "risk_result": {
+      "score": 95,
+      "verdict_component": "low risk",
+      "reasoning": "The creator's data confidence is perfect and the price per follower (Rs\u202f0.1617) falls comfortably within the typical range for integration deals. With no contract red flags and a reasonable budget, the deal presents low risk.",
+      "confidence": 0.95
+    },
+    "negotiation_result": {
+      "score": 20,
+      "verdict_component": "counter-offer suggested",
+      "reasoning": "The current Rs.6,000 ask is far below market rates of Rs.7,000\u201115,000 for similar reach and also well under the brand's Rs.25k\u201140k budget. We propose a counter\u2011offer of Rs.30,000 for the integration video, which fits the brand's budget and reflects typical pricing.",
+      "confidence": 0.95
+    }
+  },
+  "Harjinder Singh Kukreja|20000": {
+    "creator": {
+      "creator_id": 698,
+      "creator_name": "Harjinder Singh Kukreja",
+      "platform": "instagram",
+      "niche": null,
+      "followers_count": 2053185,
+      "engagement_rate": null,
+      "price_inr": 16200,
+      "price_estimated": true,
+      "data_confidence_score": 25
+    },
+    "recorded_provider": "groq",
+    "recorded_model": "openai/gpt-oss-120b",
+    "recorded_at": "2026-08-22 10:38:25",
+    "audience_fit_result": {
+      "score": 35,
+      "verdict_component": "weak fit",
+      "reasoning": "The creator\u2019s niche is unclassified, so it\u2019s unclear whether their audience overlaps with the gaming community that GameFuel targets. While the large Instagram following aligns with the brand\u2019s platform preference, the lack of demonstrated gaming relevance limits audience suitability.",
+      "confidence": 0.6
+    },
+    "engagement_result": {
+      "score": 40,
+      "verdict_component": "unknown",
+      "reasoning": "No engagement rate data available for this creator.",
+      "confidence": 0.3
+    },
+    "pricing_result": {
+      "score": 42,
+      "verdict_component": "overpriced",
+      "reasoning": "The proposed Rs.20,000 exceeds the typical Rs.15,000 seen in comparable deals for similar integration scopes, and it is also above the creator's own listed price of Rs.16,200. While it remains below the brand's minimum budget of Rs.25,000, it is still higher than market precedent for a creator of this size and niche.",
+      "confidence": 0.78
+    },
+    "risk_result": {
+      "score": 20,
+      "verdict_component": "high risk",
+      "reasoning": "Data confidence is very low (25/100) and the price per follower (Rs.0.0097) is far below the typical Rs.0.05\u20110.50 range, indicating unreliable pricing. Metrics are estimated, increasing uncertainty, so proceed with caution.",
+      "confidence": 0.9
+    },
+    "negotiation_result": {
+      "score": 20,
+      "verdict_component": "counter-offer suggested",
+      "reasoning": "The creator's Rs.20,000 ask exceeds both the market norm of Rs.15,000 and their own listed price of Rs.16,200, so a lower price is warranted. We recommend a counter\u2011offer of Rs.15,000 for the integration video, which aligns with comparable deals and leaves room for the brand's budget.",
+      "confidence": 0.92
+    }
+  }
+}

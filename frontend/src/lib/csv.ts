@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import type { AudienceTier, ContentFlag, Creator, CreatorSignals } from '../types'
+import type { AudienceTier, Creator, CreatorSignals } from '../types'
 
 /**
  * CSV import for the agency's YouTube creator export.
@@ -63,20 +63,6 @@ export function normaliseNiche(raw: string): { niche: string; subNiche: string }
   }
 }
 
-/**
- * The notes column doubles as a brand-safety marker. Betting content carries real
- * regulatory exposure in India, so it is lifted into a typed field rather than
- * left buried in free text.
- */
-export function readContentFlag(notes: string): ContentFlag {
-  const t = (notes ?? '').trim().toLowerCase()
-  if (!t) return 'unknown'
-  if (/^(both|all)$/.test(t)) return 'both'
-  if (/non[-\s]?bet/.test(t)) return 'non-betting'
-  if (/bet/.test(t)) return 'betting'
-  return 'unknown'
-}
-
 export function tierFromSubscribers(subs: number): AudienceTier {
   if (subs < 10_000) return 'Nano'
   if (subs < 100_000) return 'Micro'
@@ -137,7 +123,6 @@ export interface ParseReport {
     withIntegrationPrice: number
     withDedicatedPrice: number
     withReachData: number
-    betting: number
   }
   droppedColumns: string[]
 }
@@ -181,10 +166,10 @@ export function parseCreatorCsv(text: string): ParseReport {
       handle: handle || name,
       channelUrl: String(raw.channelUrl ?? '').trim(),
       channelId: String(raw.channelId ?? '').trim(),
+      platform: 'youtube' as const, // the bundled CSV export is YouTube-only
       niche,
       subNiche,
       nicheRaw,
-      contentFlag: readContentFlag(notes),
       subscriberCount: num(raw.subscriberCount),
       totalViews: num(raw.totalViews),
       videoCount: num(raw.videoCount),
@@ -200,7 +185,6 @@ export function parseCreatorCsv(text: string): ParseReport {
     withIntegrationPrice: rows.filter((r) => r.integrationPriceInr !== null).length,
     withDedicatedPrice: rows.filter((r) => r.dedicatedPriceInr !== null).length,
     withReachData: rows.filter((r) => r.videoCount > 0 && r.subscriberCount > 0).length,
-    betting: rows.filter((r) => r.contentFlag === 'betting').length,
   }
 
   const droppedColumns = SKIPPED_COLUMNS.filter((c) => seenHeaders.includes(c))
@@ -251,7 +235,7 @@ export function csvTemplate(): string {
         'https://www.youtube.com/@techseries5392',
         'UCpzPENOZcyAsKD6aBK0FLAw',
         'tech',
-        'non betting',
+        '',
         3910000,
         4836877,
         72,

@@ -36,8 +36,6 @@ export function NewEvaluation() {
       : creator.integrationPriceInr
     : null
 
-  const brandIsBetting = brandCategory === 'Betting'
-
   function validate(): Errors {
     const e: Errors = {}
     if (!creatorId) e.creatorId = 'Select a creator from the roster.'
@@ -65,7 +63,6 @@ export function NewEvaluation() {
       exclusivityClause: exclusivity,
       contractText,
       brandRegistrationVerified: registrationVerified,
-      brandIsBetting,
     }
     navigate('/deal-room', { state: { input } })
   }
@@ -100,7 +97,7 @@ export function NewEvaluation() {
                 placeholder={loading ? 'Loading roster…' : `Select from ${creators.length} creators…`}
                 options={creators.map((c) => ({
                   value: c.id,
-                  label: `${c.name} — ${compact(c.subscriberCount)} subs${c.niche ? ` · ${c.niche}` : ''}`,
+                  label: `${c.name} — ${compact(c.subscriberCount)} ${c.platform === 'instagram' ? 'followers' : 'subs'}${c.niche ? ` · ${c.niche}` : ''}`,
                 }))}
               />
             </Field>
@@ -114,22 +111,27 @@ export function NewEvaluation() {
                   </span>
                 </div>
                 <div className="text-ink-soft">
-                  {compact(creator.subscriberCount)} subs · {compact(creator.totalViews)} views ·{' '}
-                  {creator.videoCount} videos
+                  {compact(creator.subscriberCount)}{' '}
+                  {creator.platform === 'instagram' ? 'followers' : 'subs'}
+                  {creator.platform === 'youtube' && creator.videoCount > 0
+                    ? ` · ${compact(creator.totalViews)} views · ${creator.videoCount} videos`
+                    : ''}
                 </div>
                 <div className="text-ink-soft">
-                  {signals.hasReachData
-                    ? `${(signals.viewThroughRate * 100).toFixed(1)}% view-through`
-                    : 'No usable reach data'}
+                  {typeof creator.engagementRate === 'number' && creator.engagementRate > 0
+                    ? `${creator.engagementRate.toFixed(2)}% engagement rate`
+                    : signals.hasReachData
+                      ? `${(signals.viewThroughRate * 100).toFixed(1)}% view-through`
+                      : 'No engagement data — the Engagement agent will abstain'}
                 </div>
+                {creator.priceEstimated && (
+                  <div className="text-negotiate">
+                    Price is KNN-estimated, not a quoted rate.
+                  </div>
+                )}
                 {!creator.niche && (
                   <div className="text-negotiate">
                     No niche recorded — Audience Fit will abstain.
-                  </div>
-                )}
-                {creator.contentFlag !== 'unknown' && (
-                  <div className="text-ink-soft">
-                    Content marker: <span className="font-medium text-ink">{creator.contentFlag}</span>
                   </div>
                 )}
               </div>
@@ -157,12 +159,6 @@ export function NewEvaluation() {
                 invalid={!!errors.brandCategory}
               />
             </Field>
-            {brandIsBetting && creator?.contentFlag === 'non-betting' && (
-              <div className="rounded-xl border border-reject/30 bg-reject-bg px-4 py-3 text-xs text-reject">
-                {creator.name} is marked <strong>non-betting</strong> in the roster. This will trigger
-                a hard Reject rule.
-              </div>
-            )}
             <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-line bg-paper px-4 py-3">
               <input
                 type="checkbox"

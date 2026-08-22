@@ -16,10 +16,17 @@ const KEY = 'venturecouncil.state.v2'
 interface Persisted {
   creators: Creator[]
   evaluations: Evaluation[]
+  /** Which roster is cached. Persisted so a stale CSV fallback can be spotted
+   *  and upgraded once the engine comes back, instead of silently winning
+   *  forever because a cached roster exists. */
+  source?: 'engine' | 'csv'
 }
 
-interface StoreValue extends Persisted {
+interface StoreValue extends Omit<Persisted, 'source'> {
   loading: boolean
+  /** Where the roster came from — 'engine' (Supabase) or 'csv' (fallback).
+   *  null only while the first load is still in flight. */
+  source: 'engine' | 'csv' | null
   addCreator: (c: Omit<Creator, 'id'>) => Creator
   updateCreator: (id: string, patch: Partial<Creator>) => void
   deleteCreator: (id: string) => void
@@ -50,19 +57,44 @@ function loadPersisted(): Persisted | null {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<Persisted>({ creators: [], evaluations: [] })
   const [loading, setLoading] = useState(true)
+  const [source, setSource] = useState<'engine' | 'csv' | null>(null)
 
   useEffect(() => {
     const saved = loadPersisted()
-    if (saved && saved.creators.length) {
+    const cachedIsEngine = saved?.source === 'engine'
+
+    // A cached ENGINE roster is authoritative and may carry local edits, so it
+    // is used as-is. A cached CSV roster is a stale 282-row YouTube-only
+    // snapshot taken while the engine was unreachable; it must not outlive the
+    // engine coming back, or the app sits in "live" mode showing fallback data.
+    if (saved && saved.creators.length && cachedIsEngine) {
       setState(saved)
+      setSource('engine')
       setLoading(false)
       return
     }
+
+    // Show the stale roster immediately rather than blanking the screen, then
+    // upgrade in place if the engine answers.
+    if (saved && saved.creators.length) {
+      setState(saved)
+      setSource('csv')
+    }
+
     loadSeedCreators()
-      .then((rows) => {
-        setState({ creators: rows.map((r) => ({ ...r, id: newId('cr') })), evaluations: [] })
+      .then(({ creators, source: from }) => {
+        // Engine ids are stable Supabase primary keys (cr_43) and must be kept
+        // verbatim — /api/evaluate resolves the creator by that id.
+        setState((prev) => ({
+          creators,
+          evaluations: saved?.evaluations ?? prev.evaluations,
+          source: from,
+        }))
+        setSource(from)
       })
-      .catch(() => setState({ creators: [], evaluations: [] }))
+      .catch(() =>
+        setState((prev) => (prev.creators.length ? prev : { creators: [], evaluations: [] })),
+      )
       .finally(() => setLoading(false))
   }, [])
 
@@ -122,8 +154,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const reloadSeed = useCallback(async () => {
     setLoading(true)
     try {
-      const rows = await loadSeedCreators()
-      setState({ creators: rows.map((r) => ({ ...r, id: newId('cr') })), evaluations: [] })
+      const { creators, source: from } = await loadSeedCreators()
+      setState((s) => ({ creators, evaluations: s.evaluations, source: from }))
+      setSource(from)
     } finally {
       setLoading(false)
     }
@@ -133,6 +166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       loading,
+      source,
       addCreator,
       updateCreator,
       deleteCreator,
@@ -141,7 +175,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateEvaluation,
       reloadSeed,
     }),
-    [state, loading, addCreator, updateCreator, deleteCreator, importCreators, saveEvaluation, updateEvaluation, reloadSeed],
+    [state, loading, source, addCreator, updateCreator, deleteCreator, importCreators, saveEvaluation, updateEvaluation, reloadSeed],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

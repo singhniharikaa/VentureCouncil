@@ -1,20 +1,20 @@
 import { useMemo, useRef, useState } from 'react'
 import { useStore } from '../lib/store'
-import { creatorSignals, creatorsToCsv, csvTemplate, normaliseNiche, parseCreatorCsv, readContentFlag } from '../lib/csv'
+import { creatorSignals, creatorsToCsv, csvTemplate, normaliseNiche, parseCreatorCsv } from '../lib/csv'
 import type { ParseReport } from '../lib/csv'
 import { NICHES } from '../lib/seed'
 import { Card, Field, PillButton, SelectInput, TextInput } from '../components/ui'
-import type { ContentFlag, Creator } from '../types'
+import type { Creator } from '../types'
 
 const BLANK: Omit<Creator, 'id'> = {
   name: '',
   handle: '',
+  platform: 'youtube',
   channelUrl: '',
   channelId: '',
   niche: '',
   subNiche: '',
   nicheRaw: '',
-  contentFlag: 'unknown',
   subscriberCount: 0,
   totalViews: 0,
   videoCount: 0,
@@ -25,13 +25,6 @@ const BLANK: Omit<Creator, 'id'> = {
 
 const compact = (n: number) =>
   n >= 10_000_000 ? `${(n / 10_000_000).toFixed(1)}Cr` : n >= 100_000 ? `${(n / 100_000).toFixed(1)}L` : n.toLocaleString('en-IN')
-
-const FLAG_STYLE: Record<ContentFlag, string> = {
-  betting: 'border-reject/30 bg-reject-bg text-reject',
-  'non-betting': 'border-accept/30 bg-accept-bg text-accept',
-  both: 'border-negotiate/30 bg-negotiate-bg text-negotiate',
-  unknown: 'border-line bg-paper text-ink-faint',
-}
 
 export function Creators() {
   const { creators, loading, addCreator, updateCreator, deleteCreator, importCreators } = useStore()
@@ -44,9 +37,18 @@ export function Creators() {
 
   const coverage = useMemo(() => {
     const withNiche = creators.filter((c) => c.niche).length
-    const withIntegration = creators.filter((c) => c.integrationPriceInr !== null).length
-    const withDedicated = creators.filter((c) => c.dedicatedPriceInr !== null).length
-    return { withNiche, withIntegration, withDedicated, total: creators.length }
+    // Instagram rows carry a single `priceInr` rather than the split
+    // integration/dedicated columns, so counting only integrationPriceInr
+    // reported 275/775 and made it look as though two-thirds of the roster
+    // had no price at all. Every row with any usable price counts here.
+    const withPrice = creators.filter(
+      (c) => c.integrationPriceInr !== null || c.dedicatedPriceInr !== null || (c.priceInr ?? null) !== null,
+    ).length
+    const withEngagement = creators.filter(
+      (c) => typeof c.engagementRate === 'number' && c.engagementRate > 0,
+    ).length
+    const quotedPrice = creators.filter((c) => (c.priceInr ?? null) !== null && !c.priceEstimated).length
+    return { withNiche, withPrice, withEngagement, quotedPrice, total: creators.length }
   }, [creators])
 
   const filtered = useMemo(() => {
@@ -112,10 +114,11 @@ export function Creators() {
       <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={(e) => onCsv(e.target.files?.[0])} />
 
       {/* Coverage is shown up front because it decides which agents can speak. */}
-      <div className="mt-7 grid gap-4 sm:grid-cols-3">
+      <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <CoverageCard label="With niche" have={coverage.withNiche} total={coverage.total} note="Audience Fit abstains without it" />
-        <CoverageCard label="With integration rate" have={coverage.withIntegration} total={coverage.total} note="Pricing falls back to comps" />
-        <CoverageCard label="With dedicated rate" have={coverage.withDedicated} total={coverage.total} note="Pricing falls back to comps" />
+        <CoverageCard label="With engagement rate" have={coverage.withEngagement} total={coverage.total} note="Engagement abstains without it" />
+        <CoverageCard label="With a price on file" have={coverage.withPrice} total={coverage.total} note="Pricing falls back to comps" />
+        <CoverageCard label="Quoted, not estimated" have={coverage.quotedPrice} total={coverage.total} note="The rest are KNN-estimated" />
       </div>
 
       {report && (
@@ -129,9 +132,6 @@ export function Creators() {
                 <span>Integration price: {report.coverage.withIntegrationPrice}/{report.coverage.total}</span>
                 <span>Dedicated price: {report.coverage.withDedicatedPrice}/{report.coverage.total}</span>
                 <span>Reach data: {report.coverage.withReachData}/{report.coverage.total}</span>
-                {report.coverage.betting > 0 && (
-                  <span className="text-reject">Betting-marked: {report.coverage.betting}</span>
-                )}
               </div>
               {report.droppedColumns.length > 0 && (
                 <p className="mt-2 rounded-lg border border-line bg-paper px-3 py-2 text-xs">
@@ -175,7 +175,7 @@ export function Creators() {
           <table className="w-full min-w-[860px] text-sm">
             <thead>
               <tr className="border-b border-line text-left">
-                {['Creator', 'Niche', 'Subs', 'View-through', 'Integration', 'Dedicated', 'Content', ''].map((h) => (
+                {['Creator', 'Platform', 'Niche', 'Audience', 'Engagement', 'Integration', 'Dedicated', ''].map((h) => (
                   <th key={h} className="eyebrow px-4 py-3 font-semibold">
                     {h}
                   </th>
@@ -192,6 +192,17 @@ export function Creators() {
                       <div className="text-xs text-ink-faint">@{c.handle}</div>
                     </td>
                     <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+                          c.platform === 'instagram'
+                            ? 'border-negotiate/30 bg-negotiate-bg text-negotiate'
+                            : 'border-line bg-paper text-ink-soft'
+                        }`}
+                      >
+                        {c.platform === 'instagram' ? 'Instagram' : 'YouTube'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       {c.niche ? (
                         <span className="text-ink-soft">
                           {c.niche}
@@ -203,7 +214,11 @@ export function Creators() {
                     </td>
                     <td className="px-4 py-3 font-medium">{compact(c.subscriberCount)}</td>
                     <td className="px-4 py-3 text-ink-soft">
-                      {s.hasReachData ? `${(s.viewThroughRate * 100).toFixed(1)}%` : '—'}
+                      {typeof c.engagementRate === 'number' && c.engagementRate > 0
+                        ? `${c.engagementRate.toFixed(2)}%`
+                        : s.hasReachData
+                          ? `${(s.viewThroughRate * 100).toFixed(1)}% vt`
+                          : '—'}
                     </td>
                     <td className="px-4 py-3">
                       {c.integrationPriceInr !== null ? (
@@ -218,11 +233,6 @@ export function Creators() {
                       ) : (
                         <span className="text-xs text-ink-faint">—</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${FLAG_STYLE[c.contentFlag]}`}>
-                        {c.contentFlag}
-                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
@@ -392,21 +402,14 @@ function CreatorDrawer({
             </Field>
           </div>
 
-          <Field label="Notes" hint="Betting / non-betting is read from here.">
+          <Field label="Notes" hint="Free-text context. Not used in scoring.">
             <textarea
               value={form.notes}
-              onChange={(e) => {
-                set('notes', e.target.value)
-                set('contentFlag', readContentFlag(e.target.value))
-              }}
+              onChange={(e) => set('notes', e.target.value)}
               rows={3}
               className="w-full resize-y rounded-lg border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-ink"
             />
           </Field>
-
-          <div className="rounded-xl border border-line bg-paper px-4 py-3 text-xs">
-            Content marker: <strong className="text-ink">{form.contentFlag}</strong>
-          </div>
         </div>
 
         <div className="mt-7 flex items-center justify-between gap-3">
