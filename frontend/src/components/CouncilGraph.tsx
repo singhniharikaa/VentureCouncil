@@ -65,26 +65,54 @@ const PACKET_MS = 1000
 
 type Packet = { key: string; path: string; label: string }
 
-/** A short, human-readable chip for the payload travelling to the Supervisor. */
+/**
+ * A short, human-readable chip for the payload travelling to the Supervisor.
+ *
+ * The two engines emit different `typed` keys — the offline TS council uses
+ * fit_score / vtr / deviation_pct, while the Python adapter uses percentile /
+ * comps_used / data_confidence_score. Both are handled so the graph stays
+ * meaningful in either mode; falling through to "score 70" tells the viewer
+ * nothing the node is not already showing.
+ */
 function chipFor(a: AgentResult): string {
   const t = a.typed
   const n = (v: unknown) => (typeof v === 'number' ? v : null)
 
-  const fit = n(t.fit_score)
-  if (a.id === 'audience_fit' && fit !== null) return `fit ${fit}`
+  if (a.insufficientData) return 'insufficient data'
 
-  const vtr = n(t.view_through_rate ?? t.vtr)
-  if (a.id === 'engagement' && vtr !== null) {
-    return `vtr ${vtr <= 1 ? (vtr * 100).toFixed(1) : vtr.toFixed(1)}%`
+  if (a.id === 'audience_fit') {
+    const fit = n(t.fit_score)
+    if (fit !== null) return `fit ${fit}`
+    if (typeof t.creator_niche === 'string' && t.creator_niche) return `niche ${t.creator_niche}`
+    if (t.platform_match === true) return 'platform match'
   }
 
-  const dev = n(t.deviation_pct)
-  if (a.id === 'pricing' && dev !== null) return `dev ${dev >= 0 ? '+' : ''}${dev}%`
+  if (a.id === 'engagement') {
+    const pct = n(t.percentile)
+    if (pct !== null) return `p${Math.round(pct)} vs peers`
+    const vtr = n(t.view_through_rate ?? t.vtr)
+    if (vtr !== null) return `vtr ${vtr <= 1 ? (vtr * 100).toFixed(1) : vtr.toFixed(1)}%`
+    const er = n(t.engagement_rate)
+    if (er !== null) return `er ${er.toFixed(2)}%`
+  }
 
-  if (a.id === 'risk' && typeof t.severity === 'string') return `sev ${t.severity}`
+  if (a.id === 'pricing') {
+    const dev = n(t.deviation_pct)
+    if (dev !== null) return `dev ${dev >= 0 ? '+' : ''}${dev}%`
+    const comps = n(t.comps_used)
+    if (comps !== null) return `${comps} comps`
+  }
+
+  if (a.id === 'risk') {
+    if (typeof a.severity === 'string') return `sev ${a.severity}`
+    if (typeof t.severity === 'string') return `sev ${t.severity}`
+    const conf = n(t.data_confidence_score)
+    if (conf !== null) return `conf ${conf}/100`
+  }
+
   if (a.id === 'negotiation') return 'counter-ask'
 
-  return a.insufficientData ? 'insufficient data' : `score ${a.score}`
+  return `score ${a.score}`
 }
 
 /** Compact one-line rendering of the agent's typed output, for the receipt log. */

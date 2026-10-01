@@ -21,6 +21,35 @@ export interface EngineHealth {
   model: string
 }
 
+/** Path A: a creator returned by discovery, with how well it matched. */
+export interface Candidate extends Creator {
+  /** 0-1 cosine similarity to the brief. */
+  similarity: number | null
+  /** 1 - similarity, for display. */
+  distance: number | null
+}
+
+export interface DiscoverFilters {
+  platform?: string
+  niche?: string
+  budgetMin?: number
+  budgetMax?: number
+  minFollowers?: number
+  maxFollowers?: number
+  realPriceOnly?: boolean
+  minConfidence?: number
+  limit?: number
+}
+
+export interface DiscoverResponse {
+  candidates: Candidate[]
+  /** Plain-English list of the hard constraints applied, for the UI to show
+   *  WHY the pool is what it is rather than presenting a ranked list with no
+   *  explanation of what was excluded. */
+  filters: string[]
+  meta: { brief: string; returned: number; limit: number }
+}
+
 export interface EvaluateResponse {
   agents: AgentResult[]
   verdict: Verdict
@@ -64,6 +93,25 @@ export function checkEngine(): Promise<EngineHealth> {
 export async function fetchCreators(): Promise<Creator[]> {
   const data = await req<{ creators: Creator[] }>('/api/creators', undefined, 30_000)
   return data.creators
+}
+
+/**
+ * Path A — rank creators against a free-text brief.
+ *
+ * No LLM is involved, so this is cheap to call repeatedly: a brand can explore
+ * the roster freely and only spend agent calls on the shortlist it picks.
+ * Embedding the brief server-side takes a moment, hence the longer timeout.
+ */
+export function discoverCreators(brief: string, filters: DiscoverFilters = {}) {
+  return req<DiscoverResponse>(
+    '/api/discover',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brief, ...filters }),
+    },
+    60_000,
+  )
 }
 
 export function evaluateDeal(input: DealInput, budget?: { min: number; max: number }) {

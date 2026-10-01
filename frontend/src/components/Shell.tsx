@@ -5,6 +5,7 @@ import { useEngine } from '../lib/api'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon, end: true },
+  { to: '/discover', label: 'Discover', icon: SearchNavIcon },
   { to: '/deal-room', label: 'Deal Room', icon: DealIcon },
   { to: '/traces', label: 'Agent Traces', icon: TraceIcon },
   { to: '/audit', label: 'Audit Logs', icon: LogIcon },
@@ -167,6 +168,16 @@ function VaultIcon() {
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <rect x="2.5" y="6.5" width="11" height="8" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
       <path d="M5.5 6.5V4.8a2.5 2.5 0 0 1 5 0v1.7" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  )
+}
+
+
+function SearchNavIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
 }

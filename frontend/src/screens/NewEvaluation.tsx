@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { BRAND_CATEGORIES, DEAL_TYPES, DELIVERABLE_OPTIONS } from '../lib/seed'
 import { creatorSignals } from '../lib/csv'
@@ -15,7 +15,10 @@ export function NewEvaluation() {
   const { creators, loading } = useStore()
   const navigate = useNavigate()
 
-  const [creatorId, setCreatorId] = useState('')
+  // Path A hands a creator over via router state, so the brand does not have
+  // to find them again in a 775-row dropdown.
+  const handedOver = (useLocation().state as { creatorId?: string } | null)?.creatorId
+  const [creatorId, setCreatorId] = useState(handedOver ?? '')
   const [brandName, setBrandName] = useState('')
   const [brandCategory, setBrandCategory] = useState('')
   const [dealType, setDealType] = useState<'integration' | 'dedicated'>('integration')

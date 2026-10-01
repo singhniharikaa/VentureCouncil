@@ -224,10 +224,15 @@ so the query is rebuilt in that same shape before embedding. Without it a
 mobile-gaming brief scored 0.274 and returned *cricket* creators; with it,
 0.654 and actual gaming creators. See gotcha 7 in `CLAUDE.md`.
 
+The `/discover` screen drives all of this from the browser: brief, filters, ranked
+cards with match strength, and an "Evaluate this deal" button that carries the creator
+into the normal intake form.
+
 ## Not built yet
 
-- **Discovery UI** — the engine and API exist; there is no screen for it yet.
-- **Multi-creator campaigns** and budget aggregation.
+- **Multi-creator campaigns** and budget aggregation. `/api/evaluate` takes one creator
+  per call, and Groq's 8,000 tokens/min ceiling allows roughly two evaluations per
+  minute, so this needs paced execution rather than a naive loop.
 - Verdict thresholds are still tuned against an earlier model and need
   recalibrating for Groq.
 

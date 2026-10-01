@@ -92,7 +92,7 @@ past_deals (
 - **Engagement comparison is percentile-based, not raw**: YouTube and Instagram engagement rates aren't on the same scale even after fixing the calculation, so the Engagement agent ranks a creator against same-platform peers via a SQL percentile query, not the raw number.
 - **Betting/non-betting classification was dropped** from Risk agent scope — data coverage was too sparse (24% YouTube, 0% Instagram) to be reliable. Don't re-add without new data.
 - **Contract evaluation was folded into the Risk agent**, not built as a 6th agent — avoid scope creep; only add contract_text analysis (already stubbed in `risk.py`) when there's actual contract text to evaluate (Path B optional field).
-- **Two entry paths**: Path A (discovery — brand free-text → pgvector match → brand picks N creators) and Path B (direct — creator + deal given). Both converge into the same 5-agent evaluation. **Path A's engine and API are built** (`app/discovery.py`, `POST /api/discover`, 2026-10-02); its frontend screen is not.
+- **Two entry paths**: Path A (discovery — brand free-text → pgvector match → brand picks N creators) and Path B (direct — creator + deal given). Both converge into the same 5-agent evaluation. **Path A is built end to end** (2026-10-02): `app/discovery.py`, `POST /api/discover`, and the `/discover` screen. Picking a candidate hands its `cr_<id>` to `/evaluate` via router state, so Path A flows into the same Path B evaluation rather than duplicating it.
 - **Discovery is hard filters + semantic ranking, not similarity alone.** Budget, platform and reach are SQL `WHERE` clauses that remove candidates outright; the vector search only orders what survives. A creator who matches the brief perfectly but costs triple the budget is not a match, and evaluating them burns five LLM calls for nothing. Filtering *after* ranking would fill the top-k with unaffordable creators. Discovery itself uses **no LLM**, so a brand can explore freely and only spend agent calls on a shortlist.
 - **Multi-creator support**: each selected creator runs the full pipeline independently in parallel. Budget aggregation (summing accepted/negotiated deals against a brand's total campaign budget) is a query-time input, NOT a stored `brands` table field — campaign budgets vary per campaign.
 - **No live external API calls during evaluation** was an intentional scope decision for the mini-project (academic defensibility) — this refers to NOT calling live YouTube/Instagram APIs during deal evaluation. It does NOT mean avoiding Gemini/embeddings, which are core to the architecture.
@@ -188,8 +188,14 @@ it now reports the live engine state instead.
    Do not remove this — the two are not comparable, and a mixed history that hides the
    difference is worse than no history.
 
-Screens: `/` dashboard, `/evaluate` intake, `/deal-room` live trace, `/deal/:id` replay,
-`/creators` roster + CSV import/export, `/traces` agent stats, `/audit` raw I/O.
+Screens: `/` dashboard, `/discover` Path A search, `/evaluate` intake, `/deal-room` live
+trace, `/deal/:id` replay, `/creators` roster + CSV import/export, `/traces` agent stats,
+`/audit` raw I/O.
+
+`/discover` requires the engine — the vector search and embedding model both live in
+Python — so it shows an explicit "needs the engine running" card in offline mode rather
+than an empty screen. Verified end to end in the browser: brief + filters -> 20 ranked
+candidates -> "Evaluate this deal" -> preselected intake -> real five-agent verdict in 5.2s.
 
 ### Council graph (`components/CouncilGraph.tsx`)
 
@@ -209,6 +215,10 @@ Notes for anyone touching it:
   tab froze the clock at 0.0s. Do not "optimise" it back to rAF.
 - Packet animations use CSS `offset-path`; keyframes (`flow`, `dash`, `halo`, `rise`)
   live in `index.css` and are disabled under `prefers-reduced-motion`.
+- `chipFor()` must handle BOTH engines' `typed` keys. The offline TS council emits
+  `fit_score` / `vtr` / `deviation_pct`; the Python adapter emits `percentile` /
+  `comps_used` / `data_confidence_score`. Written for only one, the chips silently
+  degrade to "score 70", which tells the viewer nothing the node is not already showing.
 - Replaying re-runs the council for the visual only. The council is deterministic, so
   a replay must not write a second history record — `savedOnce` in `DealRoom` guards it.
 
