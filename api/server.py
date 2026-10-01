@@ -217,14 +217,17 @@ def _load_creator(conn, pk: int) -> dict:
 
 
 def _percentile(conn, platform: str, rate: float | None):
-    if rate is None:
+    # 0 means "not measured" in this roster, not "no engagement" - see the
+    # note in app/agents/engagement.py. Must match the agent, or the UI would
+    # report a percentile the agent never used.
+    if not rate:
         return None
     with conn.cursor() as cur:
         cur.execute(
             """
             SELECT (COUNT(*) FILTER (WHERE engagement_rate < %s))::float
-                   / NULLIF(COUNT(*) FILTER (WHERE engagement_rate IS NOT NULL), 0) * 100
-            FROM creators WHERE platform = %s
+                   / NULLIF(COUNT(*) FILTER (WHERE engagement_rate > 0), 0) * 100
+            FROM creators WHERE platform = %s AND engagement_rate > 0
             """,
             (rate, platform),
         )

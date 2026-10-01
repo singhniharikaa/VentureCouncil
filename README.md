@@ -28,7 +28,8 @@ College mini-project — AI & Data Science.
   because it reasons over their findings rather than re-deriving them.
 - The **Supervisor** is not an LLM. It applies fixed weights
   (pricing 0.35, audience 0.30, engagement 0.25, negotiation 0.10) and
-  thresholds (≥70 Accept, ≥45 Negotiate, else Reject).
+  thresholds (**≥50 Accept, ≥45 Negotiate**, else Reject) — calibrated against
+  11 labelled deals, see `tools/calibrate_thresholds.py`.
 - **Risk is not weighted** — it acts as a veto. "High risk" floors the verdict
   at Negotiate and can never produce an Accept. That rule is deterministic
   Python, not model discretion, which is what makes the verdict defensible.
@@ -233,8 +234,10 @@ into the normal intake form.
 - **Multi-creator campaigns** and budget aggregation. `/api/evaluate` takes one creator
   per call, and Groq's 8,000 tokens/min ceiling allows roughly two evaluations per
   minute, so this needs paced execution rather than a naive loop.
-- Verdict thresholds are still tuned against an earlier model and need
-  recalibrating for Groq.
+- `data_confidence_score` is stored and over-credits creators whose
+  engagement rate is recorded as zero; correcting it needs a reseed.
+- Agent Traces and Audit Log read `localStorage`, so they only show runs from
+  one browser.
 
 ---
 

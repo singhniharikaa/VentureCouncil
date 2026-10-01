@@ -57,11 +57,18 @@ def test_risk_maps_by_component_not_by_score(component, recommendation, severity
 
 # ------------------------------------------------------ insufficient data
 
-def test_engagement_with_no_rate_is_marked_insufficient(state):
-    state["engagement_rate"] = None
+@pytest.mark.parametrize("rate", [None, 0, 0.0])
+def test_engagement_with_no_usable_rate_is_marked_insufficient(rate, state):
+    """
+    This roster stores 0 for "not measured" - 126 of 775 creators, including
+    accounts with millions of followers. Read as a real score it put them in
+    the bottom percentile and flipped correct verdicts, so 0 must behave
+    exactly like NULL.
+    """
+    state["engagement_rate"] = rate
     out = to_fe("engagement", agent(40, "unknown"), state)
     assert out["insufficientData"] is True
-    assert "No engagement rate recorded for this creator" in out["flags"]
+    assert any("No usable engagement rate" in f for f in out["flags"])
 
 
 def test_complete_engagement_is_not_marked_insufficient(state):

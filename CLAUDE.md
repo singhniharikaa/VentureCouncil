@@ -138,7 +138,17 @@ past_deals (
    distance, then `data_confidence_score DESC`, then `followers_count DESC`. Note that
    `data_confidence_score` measures COMPLETENESS, not quality: a 2-follower channel with all
    four fields present still scores 100, so a `min_followers` floor is the real guard.
-9. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
+9. **`engagement_rate = 0` means "not measured", NOT "no engagement".** 126 of 775
+   creators carry 0, including Instagram accounts with millions of followers (33.6% of
+   Instagram rows), and **125 of them still score data_confidence >= 75** because the
+   score credits the field merely being present. Read literally, zero put those creators
+   in the bottom percentile and cost the deal ~11 weighted points — in calibration it
+   turned a fair Instagram offer into Negotiate and a negotiable one into Reject. Zero is
+   now treated exactly like NULL in `app/agents/engagement.py` (abstain, score 40,
+   confidence 0.3), excluded from the percentile population, and flagged as
+   insufficient data by `api/adapter.py`. Note `data_confidence_score` is stored and
+   still over-credits these rows; fixing that needs a reseed.
+10. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
 
 ## The two halves are now wired together (2026-08-22)
 
@@ -252,20 +262,49 @@ numbers must come from this provider — say so in the write-up.
 | Chirag Sajnani, Rs.6,000 | Negotiate **69.3** | Reject **40.2** |
 | Harjinder Singh Kukreja, Rs.20,000 | Negotiate **65.2** | Reject **37.2** |
 
-This is not noise — it is a systematic shift, and **nothing in the sample now scores Accept**.
-Two things follow:
+Groq's reasoning is arguably better on at least one case: on Chirag it scored negotiation
+20 (vs Gemini's 100) because it noticed the Rs.6,000 offer sits far below the brand's
+Rs.25,000 minimum — the exact self-contradiction Gemini produced ("falls significantly
+below the brand's minimum ... no negotiation needed"). Harsher here means more correct.
 
-1. **The 70/45 thresholds were implicitly tuned against Gemini's more generous scoring.**
-   They likely need recalibrating for Groq, or the sample will look like the system rejects
-   everything. Do this deliberately with a spread of deals, not by nudging until Bulky passes.
-2. **Groq's reasoning is arguably better on at least one case.** On Chirag it scored
-   negotiation 20 (vs Gemini's 100) because it noticed the Rs.6,000 offer sits far below the
-   brand's Rs.25,000 minimum — the exact self-contradiction Gemini produced ("falls
-   significantly below the brand's minimum ... no negotiation needed"). Harsher here means
-   more correct.
+Report the numeric score next to every verdict: the bands are narrow and the word alone
+hides how close a call was.
 
-Also worth reporting the numeric score next to every verdict: Bulky at 69.2 is 0.8 off a
-different answer, and the verdict alone hides how close the call was.
+## Thresholds: calibrated 2026-10-02 (ACCEPT_AT 50, NEGOTIATE_AT 45)
+
+Run `python tools/calibrate_thresholds.py` (results kept in `tools/calibration.json`).
+It runs 11 deals whose correct verdict is not in serious dispute — a fair offer to a
+well-matched creator should Accept, four times the creator's own rate should not — and
+reports where the scores actually fall. Labels are declared up front in `DEALS` so the
+reasoning is auditable rather than fitted afterwards.
+
+**Result: Accept lowered from 70 to 50; Negotiate stays at 45.** The agents do not use
+the top of the 0-100 range. Measured separation:
+
+| intended | observed scores |
+|---|---|
+| Accept | 52.8, 59.8, 70.2, 76.8 |
+| Negotiate | 45.1, 46.0, 46.5 |
+| Reject | 25.2, 31.5, 40.8, 43.7 |
+
+Two clean gaps (43.7->45.1 and 46.5->52.8). The bands sit at their MIDPOINTS, not at the
+edge of the best-scoring range, to keep margin against variance. 70/45 scored 9/11;
+50/45 scores 11/11 with zero severe misclassifications. **n=11 — re-run before trusting
+these further than that.**
+
+Three things were found while doing it, and they mattered more than the numbers:
+
+1. **A calibration harness must not derive the brand budget from the offer.** The first
+   run set budget to the offer +/-20%, which told the agents the offer was in budget by
+   construction — a 4x overpay then scored 70 on pricing and 100 on negotiation, and
+   "Accept". Anchoring budget to the creator's market rate instead flipped all four
+   Reject cases to correct. The agents were fine; the test was wrong.
+2. **engagement_rate = 0 meant "not measured", and was being read as "terrible"** — see
+   gotcha 10.
+3. **Temperature was 0.2 and verdicts were not reproducible.** The same deal scored 66.0
+   then 40.3 on consecutive identical runs (pricing 70->30, negotiation 100->20). Now 0:
+   swings over 6 points fell from 3/11 to 1/11. It is reduced, not eliminated — provider
+   batching still varies — so treat any single run as indicative, not exact.
 
 `demo_fixtures.json` now holds Groq recordings (each tagged with `recorded_provider`,
 `recorded_model`, `recorded_at`). Regenerate any time with `demo.py --record`.

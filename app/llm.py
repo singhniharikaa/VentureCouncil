@@ -170,7 +170,13 @@ def _generate(prompt: str) -> str:
         kwargs = {
             "model": model_name(),
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.2,
+            # Temperature 0: these agents classify and score, they do not
+            # write prose that benefits from variety. At 0.2 the same deal
+            # scored 66.0 and then 40.3 on consecutive identical runs (pricing
+            # 70->30, negotiation 100->20), which makes verdicts irreproducible
+            # and makes threshold calibration impossible. 0 reduces that sharply
+            # but does NOT eliminate it - provider-side batching still varies.
+            "temperature": 0,
         }
         # Groq supports OpenAI-style JSON mode, which removes the whole class
         # of "model wrapped its JSON in prose" failures.

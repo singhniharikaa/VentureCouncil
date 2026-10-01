@@ -8,7 +8,7 @@ first.
 """
 import pytest
 
-from app.supervisor import WEIGHTS, run
+from app.supervisor import ACCEPT_AT, NEGOTIATE_AT, WEIGHTS, run
 from tests.conftest import agent
 
 
@@ -66,16 +66,26 @@ def test_missing_agent_result_defaults_to_fifty():
     "uniform, expected",
     [
         (100, "Accept"),
-        (70, "Accept"),      # boundary: >= 70
-        (69, "Negotiate"),
-        (45, "Negotiate"),   # boundary: >= 45
-        (44, "Reject"),
+        (ACCEPT_AT, "Accept"),          # boundary, inclusive
+        (ACCEPT_AT - 1, "Negotiate"),
+        (NEGOTIATE_AT, "Negotiate"),    # boundary, inclusive
+        (NEGOTIATE_AT - 1, "Reject"),
         (0, "Reject"),
     ],
 )
 def test_threshold_bands(uniform, expected):
     state = build(uniform, uniform, uniform, uniform)
     assert verdict_of(state) == expected
+
+
+def test_bands_are_ordered_and_calibrated():
+    """
+    Guards the calibration. These are not arbitrary: they sit at the midpoints
+    of the gaps observed across 11 labelled deals (Reject topped out at 43.7,
+    Negotiate ran 45.1-46.5, Accept started at 52.8).
+    """
+    assert 0 < NEGOTIATE_AT < ACCEPT_AT < 100
+    assert ACCEPT_AT == 50 and NEGOTIATE_AT == 45
 
 
 # -------------------------------------------------------- the hard rule
@@ -91,7 +101,8 @@ def test_high_risk_cannot_produce_accept():
 
 def test_high_risk_does_not_worsen_a_negotiate():
     """The floor only pulls Accept down; it must not push Negotiate to Reject."""
-    state = build(50, 50, 50, 50, risk_component="high risk")
+    mid = (ACCEPT_AT + NEGOTIATE_AT) // 2  # squarely inside the Negotiate band
+    state = build(mid, mid, mid, mid, risk_component="high risk")
     out = run(state)["verdict"]
     assert out["verdict"] == "Negotiate"
     assert out["hard_rule_applied"] is False

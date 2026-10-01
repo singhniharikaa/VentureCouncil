@@ -22,9 +22,9 @@ AGENT_LABELS = {
     "negotiation": "Negotiation",
 }
 
-# The Supervisor's own bands, so the per-agent chips agree with the verdict.
-ACCEPT_AT = 70
-NEGOTIATE_AT = 45
+# Imported, never duplicated: a second copy of the bands would silently
+# disagree with the verdict the Supervisor actually issued.
+from app.supervisor import ACCEPT_AT, NEGOTIATE_AT  # noqa: E402
 
 RISK_SEVERITY = {
     "low risk": "low",
@@ -145,8 +145,8 @@ def _flags_for(agent_id: str, state: dict, extra: dict) -> list[str]:
             flags.append("Contract text supplied and reviewed")
     if agent_id == "audience_fit" and not state.get("niche"):
         flags.append("Creator niche missing from the roster")
-    if agent_id == "engagement" and state.get("engagement_rate") is None:
-        flags.append("No engagement rate recorded for this creator")
+    if agent_id == "engagement" and not state.get("engagement_rate"):
+        flags.append("No usable engagement rate (missing or recorded as zero)")
     return flags
 
 
@@ -173,8 +173,11 @@ def agent_to_frontend(
 
     # The engine signals "I could not judge this" by returning the unknown
     # component (engagement does this when engagement_rate is NULL).
+    # `not rate` catches both NULL and 0; this roster stores 0 for "not
+    # measured", so both must read as insufficient data rather than as a
+    # genuine low score.
     insufficient = component == "unknown" or (
-        agent_id == "engagement" and state.get("engagement_rate") is None
+        agent_id == "engagement" and not state.get("engagement_rate")
     )
 
     out = {
