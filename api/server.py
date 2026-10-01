@@ -9,7 +9,8 @@ This module is the bridge:
     GET  /api/health     is the engine reachable, which model is pinned
     GET  /api/creators   all 775 creators from Supabase, both platforms
     GET  /api/brands     seeded brands, for the intake form
-    POST /api/evaluate   runs the real 5-agent LangGraph pipeline
+    POST /api/discover   Path A: free-text brief -> ranked creator candidates
+    POST /api/evaluate   Path B: runs the real 5-agent LangGraph pipeline
 
 Run it with:
     python -m uvicorn api.server:app --reload --port 8000
@@ -29,6 +30,7 @@ from api.adapter import (
     verdict_to_frontend,
 )
 from app.config import VECTOR_PROBES_SQL, embed_text, get_connection
+from app.discovery import discover_creators, summarise_filters
 from app.graph import build_graph
 from app.llm import model_name, provider
 
@@ -57,6 +59,21 @@ def graph():
     if _graph is None:
         _graph = build_graph()
     return _graph
+
+
+class DiscoverRequest(BaseModel):
+    """Path A: what the brand wants, in words plus hard constraints."""
+
+    brief: str = Field(min_length=3, max_length=2000)
+    platform: str | None = None
+    niche: str | None = None
+    budgetMin: int | None = None
+    budgetMax: int | None = None
+    minFollowers: int | None = None
+    maxFollowers: int | None = None
+    realPriceOnly: bool = False
+    minConfidence: int | None = None
+    limit: int = Field(default=20, ge=1, le=100)
 
 
 class EvaluateRequest(BaseModel):
@@ -134,6 +151,49 @@ def brands():
     finally:
         conn.close()
     return {"brands": rows}
+
+
+@app.post("/api/discover")
+def discover(req: DiscoverRequest):
+    """
+    Path A — rank creators against a free-text brief.
+
+    Hard constraints (budget, platform, reach) filter the pool in SQL; the
+    vector search only orders what survives. This is deliberately cheap: no
+    LLM is involved, so a brand can explore the roster freely and only spend
+    agent calls on the handful of creators it actually shortlists.
+    """
+    filters = dict(
+        platform=req.platform,
+        niche=req.niche,
+        budget_min=req.budgetMin,
+        budget_max=req.budgetMax,
+        min_followers=req.minFollowers,
+        max_followers=req.maxFollowers,
+        real_price_only=req.realPriceOnly,
+        min_confidence=req.minConfidence,
+    )
+
+    conn = get_connection()
+    try:
+        rows = discover_creators(conn, req.brief, limit=req.limit, **filters)
+    except Exception as exc:
+        raise HTTPException(502, f"Discovery failed: {type(exc).__name__}: {exc}")
+    finally:
+        conn.close()
+
+    candidates = []
+    for r in rows:
+        creator = creator_to_frontend(r)
+        creator["similarity"] = r.get("similarity")
+        creator["distance"] = r.get("distance")
+        candidates.append(creator)
+
+    return {
+        "candidates": candidates,
+        "filters": summarise_filters(**filters),
+        "meta": {"brief": req.brief, "returned": len(candidates), "limit": req.limit},
+    }
 
 
 def _load_creator(conn, pk: int) -> dict:

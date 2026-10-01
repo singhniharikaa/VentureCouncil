@@ -153,10 +153,11 @@ measured latency — then the Supervisor's weighted arithmetic as a table. Use
 ```
 app/          engine: agents, LangGraph wiring, supervisor, LLM layer
   agents/     audience_fit · engagement · pricing · risk · negotiation
+  discovery.py  Path A: filtered pgvector search over the roster
   graph.py    fan-out / gate / fan-in wiring
   llm.py      provider-agnostic LLM calls, concurrency cap, 429 backoff
   config.py   Supabase connection, embeddings, secrets from .env
-api/          FastAPI: /health /creators /brands /evaluate
+api/          FastAPI: /health /creators /brands /discover /evaluate
   adapter.py  engine output -> frontend contract
 frontend/     React app (see frontend/README.md)
 main.py       CLI entry point
@@ -199,10 +200,33 @@ everything worth protecting in this system is pure logic:
 `test_graph.py` is the regression test for CLAUDE.md gotcha #1. It was verified
 by reintroducing the bug: the Supervisor then runs twice and the test fails.
 
+## Path A — discovery
+
+A brand describes what it wants in free text and gets ranked creator
+candidates, with **no LLM involved** — so exploring the roster is free, and
+agent calls are only spent on the shortlist.
+
+```bash
+curl -X POST localhost:8000/api/discover -H 'Content-Type: application/json' -d '{
+  "brief": "energy drink launch aimed at mobile gaming audiences",
+  "platform": "youtube", "niche": "gaming",
+  "budgetMax": 50000, "realPriceOnly": true, "minFollowers": 10000, "limit": 5
+}'
+```
+
+Hard constraints (budget, platform, reach, data quality) filter in SQL; vector
+similarity only orders what survives. A creator who matches the brief but costs
+triple the budget is not a match. Results carry `cr_<id>` keys that feed
+straight into `/api/evaluate`.
+
+Worth knowing: `creators.embedding` was built from a fixed template, not prose,
+so the query is rebuilt in that same shape before embedding. Without it a
+mobile-gaming brief scored 0.274 and returned *cricket* creators; with it,
+0.654 and actual gaming creators. See gotcha 7 in `CLAUDE.md`.
+
 ## Not built yet
 
-- **Path A (discovery)** — free-text brand query → pgvector search over creators.
-  Only Path B (creator + deal given) exists.
+- **Discovery UI** — the engine and API exist; there is no screen for it yet.
 - **Multi-creator campaigns** and budget aggregation.
 - Verdict thresholds are still tuned against an earlier model and need
   recalibrating for Groq.

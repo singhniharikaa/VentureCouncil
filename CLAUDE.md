@@ -92,7 +92,8 @@ past_deals (
 - **Engagement comparison is percentile-based, not raw**: YouTube and Instagram engagement rates aren't on the same scale even after fixing the calculation, so the Engagement agent ranks a creator against same-platform peers via a SQL percentile query, not the raw number.
 - **Betting/non-betting classification was dropped** from Risk agent scope — data coverage was too sparse (24% YouTube, 0% Instagram) to be reliable. Don't re-add without new data.
 - **Contract evaluation was folded into the Risk agent**, not built as a 6th agent — avoid scope creep; only add contract_text analysis (already stubbed in `risk.py`) when there's actual contract text to evaluate (Path B optional field).
-- **Two entry paths**: Path A (discovery — brand free-text → pgvector match → brand picks N creators) and Path B (direct — creator + deal given). Both converge into the same 5-agent evaluation. Path A's discovery/matching code is NOT built yet — only the evaluation engine is.
+- **Two entry paths**: Path A (discovery — brand free-text → pgvector match → brand picks N creators) and Path B (direct — creator + deal given). Both converge into the same 5-agent evaluation. **Path A's engine and API are built** (`app/discovery.py`, `POST /api/discover`, 2026-10-02); its frontend screen is not.
+- **Discovery is hard filters + semantic ranking, not similarity alone.** Budget, platform and reach are SQL `WHERE` clauses that remove candidates outright; the vector search only orders what survives. A creator who matches the brief perfectly but costs triple the budget is not a match, and evaluating them burns five LLM calls for nothing. Filtering *after* ranking would fill the top-k with unaffordable creators. Discovery itself uses **no LLM**, so a brand can explore freely and only spend agent calls on a shortlist.
 - **Multi-creator support**: each selected creator runs the full pipeline independently in parallel. Budget aggregation (summing accepted/negotiated deals against a brand's total campaign budget) is a query-time input, NOT a stored `brands` table field — campaign budgets vary per campaign.
 - **No live external API calls during evaluation** was an intentional scope decision for the mini-project (academic defensibility) — this refers to NOT calling live YouTube/Instagram APIs during deal evaluation. It does NOT mean avoiding Gemini/embeddings, which are core to the architecture.
 
@@ -118,7 +119,26 @@ past_deals (
    and is then silently lost once the graph runs its agents in parallel — the failure only shows
    up under concurrency. `SET LOCAL` is scoped to the current transaction, which is always one
    backend. Requires `autocommit=False` (psycopg2's default).
-7. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
+7. **`creators.embedding` was built from a fixed TEMPLATE, not prose.** Every row was
+   embedded from:
+   `"{platform} creator, {niche} niche, {bucket} followers, {engagement} engagement, price around {band}"`
+   with these exact bucket labels: followers `under 50k | 50k-200k | 200k-500k | 500k-1m | 1m+`,
+   engagement `weak | average | strong | very strong | unknown`, price
+   `under 15k | 15k-30k | 30k-50k | 50k-100k | 100k+`.
+   A raw brand brief shares almost no vocabulary with that. Measured on the same query:
+   a bare brief scored **0.274 and returned cricket creators** for a mobile-gaming request;
+   rebuilt in the template it scored **0.654 and returned gaming creators**. For a fashion
+   brief, 0.625 -> 0.822. `discovery.build_query_text()` does this rebuild — if you change
+   how creators are embedded, change that function to match, and keep the bucket spellings
+   identical. A near-miss label defeats the point silently.
+8. **The embedding has low resolution, so ties are the norm.** It encodes five coarse
+   buckets, so every creator in the same bucket scores almost identically (0.654 / 0.653 /
+   0.653 / 0.653 in one real result). Left to the vector alone the order within a tie is
+   arbitrary — a channel with **2 followers** ranked third. `discovery` therefore orders by
+   distance, then `data_confidence_score DESC`, then `followers_count DESC`. Note that
+   `data_confidence_score` measures COMPLETENESS, not quality: a 2-follower channel with all
+   four fields present still scores 100, so a `min_followers` floor is the real guard.
+9. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
 
 ## The two halves are now wired together (2026-08-22)
 
