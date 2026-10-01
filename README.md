@@ -38,7 +38,7 @@ College mini-project — AI & Data Science.
 |---|---|
 | Engine | Python · LangGraph · 5 agents + Supervisor |
 | LLM | Groq `openai/gpt-oss-120b` (pluggable: Groq / Gemini / xAI) |
-| Data | Supabase (Postgres + pgvector) — 775 creators, 18 brands, 61 past deals |
+| Data | Supabase (Postgres + pgvector) — 649 creators, 18 brands, 52 past deals |
 | Embeddings | `sentence-transformers` all-MiniLM-L6-v2, 384-dim, local and free |
 | API | FastAPI |
 | Frontend | React 19 · Vite · Tailwind 4 · React Router · Recharts |
@@ -106,11 +106,11 @@ CORS configuration to do.
 
 ```bash
 curl http://127.0.0.1:8000/api/health
-# {"ok":true,"creators":775,"provider":"groq","model":"openai/gpt-oss-120b"}
+# {"ok":true,"creators":649,"provider":"groq","model":"openai/gpt-oss-120b"}
 ```
 
 In the browser the sidebar should read **“Engine: groq”** and the roster should
-show **775 creators**.
+show **649 creators**.
 
 ---
 
@@ -125,7 +125,7 @@ The app always tells you which one produced a verdict:
 
 | Banner | Meaning |
 |---|---|
-| 🟢 **Live engine** | Five LLM agents, 775 Supabase creators, pgvector comparables |
+| 🟢 **Live engine** | Five LLM agents, 649 Supabase creators, pgvector comparables |
 | 🟠 **Offline mode — no AI model was used** | Local arithmetic over the stale CSV |
 
 History records `engine` and `model` per evaluation for the same reason. **The

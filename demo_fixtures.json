@@ -14,35 +14,35 @@
     },
     "recorded_provider": "groq",
     "recorded_model": "openai/gpt-oss-120b",
-    "recorded_at": "2026-10-02 01:07:13",
+    "recorded_at": "2026-10-02 01:43:06",
     "audience_fit_result": {
       "score": 85,
       "verdict_component": "strong fit",
-      "reasoning": "The creator produces gaming content on YouTube, directly matching the brand's gaming focus and platform preference. With 302k followers, the audience size is substantial enough for meaningful reach while still being targeted. This alignment suggests a strong fit for the partnership.",
+      "reasoning": "The creator\u2019s gaming niche aligns directly with GameFuel Energy\u2019s target audience, and both operate on YouTube, ensuring platform synergy. With 302,000 followers, the audience size is substantial enough for meaningful brand exposure without being overly niche.",
       "confidence": 0.92
     },
     "engagement_result": {
-      "score": 37,
+      "score": 38,
       "verdict_component": "weak engagement",
-      "reasoning": "The creator ranks in the 36.9th percentile among YouTube peers, meaning they outperform only about a third of comparable channels. This below\u2011median position indicates weak engagement relative to their platform\u2019s standards.",
+      "reasoning": "The creator sits at the 36.9th percentile among YouTube peers, meaning they outperform only about a third of comparable channels. This places them below the platform median, indicating weak engagement relative to their peers.",
       "confidence": 0.85
     },
     "pricing_result": {
       "score": 70,
       "verdict_component": "fair",
-      "reasoning": "The Rs.35,000 offer sits just above the creator's listed Rs.30,000 price and is lower than the Rs.45,000 negotiated deal for a similar 1\u2011integration video, while still within the brand's Rs.25,000\u2011Rs.40,000 budget. This positioning between an accepted Rs.30,000 deal and higher negotiated amounts suggests the price is fair.",
+      "reasoning": "The deal is close to the accepted Rs.30k integration video and well below the negotiated Rs.45k and higher deals, fitting within the brand's Rs.25k\u201140k budget. Therefore the Rs.35k offer is reasonable.",
       "confidence": 0.85
     },
     "risk_result": {
       "score": 92,
       "verdict_component": "low risk",
-      "reasoning": "The creator has a perfect data confidence score and the price per follower of Rs.0.1159 falls well within the typical range for integration deals. No contract red flags are indicated, suggesting a safe partnership.",
+      "reasoning": "The creator has a perfect data confidence score and the price per follower of Rs.0.1159 falls well within the typical range for integration deals. No contract red flags are present, indicating a low\u2011risk partnership.",
       "confidence": 0.97
     },
     "negotiation_result": {
       "score": 100,
       "verdict_component": "no negotiation needed",
-      "reasoning": "The Rs.35,000 offer is above the creator's listed Rs.30,000 price, below the Rs.45,000 benchmark for similar work, and fits within the brand's Rs.25,000\u2011Rs.40,000 budget, making it fair. No counter\u2011offer is required.",
+      "reasoning": "The Rs.35,000 offer aligns with typical integration video rates and sits comfortably within the brand's Rs.25,000\u201140,000 budget, matching the Pricing Agent's assessment of fairness. No adjustment to price or deliverable is required.",
       "confidence": 0.97
     }
   },
@@ -60,7 +60,7 @@
     },
     "recorded_provider": "groq",
     "recorded_model": "openai/gpt-oss-120b",
-    "recorded_at": "2026-10-02 01:07:42",
+    "recorded_at": "2026-10-02 01:43:34",
     "audience_fit_result": {
       "score": 30,
       "verdict_component": "weak fit",
@@ -71,13 +71,13 @@
       "score": 62,
       "verdict_component": "average engagement",
       "reasoning": "The creator ranks in the 61.9th percentile among Instagram peers, indicating they outperform roughly 62% of comparable accounts. This places them above the median but not in the top tier of engagement.",
-      "confidence": 0.9
+      "confidence": 0.85
     },
     "pricing_result": {
       "score": 30,
       "verdict_component": "underpriced",
-      "reasoning": "Comparable deals for similar creators were Rs.15,000 for 1\u20112 integration posts or videos, with the lowest at Rs.7,000, while the creator's own listed price is Rs.5,000. The proposed Rs.6,000 is only slightly above the creator's price but far below market precedent, making it underpriced.",
-      "confidence": 0.86
+      "reasoning": "The proposed Rs.6,000 is below the creator's own listed price of Rs.5,000 and significantly lower than comparable accepted deals of Rs.7,000 and Rs.15,000 for similar integration posts and videos. Given the brand's budget of Rs.25,000\u201140,000, the offer is markedly cheaper than market norms.",
+      "confidence": 0.85
     },
     "risk_result": {
       "score": 92,
@@ -86,10 +86,10 @@
       "confidence": 0.97
     },
     "negotiation_result": {
-      "score": 90,
+      "score": 20,
       "verdict_component": "counter-offer suggested",
-      "reasoning": "The brand's budget is Rs.25,000\u2011Rs.40,000 and market precedent for similar creators is around Rs.15,000\u2011Rs.20,000 per integration. A counter\u2011offer of Rs.25,000 for one integration video aligns with the brand's minimum budget and provides fair compensation.",
-      "confidence": 0.95
+      "reasoning": "The Rs.6,000 offer is well below market rates (Rs.7k\u201115k) and far under the brand's Rs.25k\u201140k budget. A counter\u2011offer of Rs.15,000 for the integration video aligns with comparable deals and utilizes the brand's budget more effectively.",
+      "confidence": 0.92
     }
   },
   "Harjinder Singh Kukreja|20000": {
@@ -106,7 +106,7 @@
     },
     "recorded_provider": "groq",
     "recorded_model": "openai/gpt-oss-120b",
-    "recorded_at": "2026-10-02 01:08:10",
+    "recorded_at": "2026-10-02 01:44:08",
     "audience_fit_result": {
       "score": 55,
       "verdict_component": "moderate fit",
@@ -120,22 +120,22 @@
       "confidence": 0.3
     },
     "pricing_result": {
-      "score": 35,
+      "score": 40,
       "verdict_component": "overpriced",
-      "reasoning": "Comparable deals for creators with similar follower counts were consistently around Rs.15,000 and were accepted or negotiated, while the creator\u2019s own listed price is Rs.16,200. The proposed Rs.20,000 exceeds both the market norm and the creator\u2019s self\u2011priced rate, making it overpriced relative to the evidence.",
-      "confidence": 0.85
+      "reasoning": "Similar creators with ~2M followers secured deals around Rs.15,000 for comparable integration posts and videos, and those offers were accepted. The proposed Rs.20,000 exceeds the typical accepted price by about 33%, making it less aligned with past outcomes despite fitting within the brand's budget range.",
+      "confidence": 0.75
     },
     "risk_result": {
       "score": 20,
       "verdict_component": "high risk",
       "reasoning": "The creator's data confidence score is only 25, well below the acceptable threshold, and the estimated price per follower (Rs.0.0097) is far below the typical range of Rs.0.05\u20110.50, suggesting unrealistic pricing. These factors warrant proceeding with caution.",
-      "confidence": 0.9
+      "confidence": 0.85
     },
     "negotiation_result": {
-      "score": 85,
+      "score": 25,
       "verdict_component": "counter-offer suggested",
-      "reasoning": "The Rs.20,000 ask exceeds both the market norm (~Rs.15,000) and the creator\u2019s own listed rate (Rs.16,200). We recommend a counter\u2011offer of Rs.15,500 for the integration video, which aligns with comparable deals while staying within the brand\u2019s budget.",
-      "confidence": 0.95
+      "reasoning": "The Rs20,000 ask is about 33% above the market rate of Rs15,000 for similar creators, so a reduction is warranted. We recommend a counter\u2011offer of Rs15,000 for the integration video, which aligns with past accepted deals and still fits within the brand\u2019s budget.",
+      "confidence": 0.93
     }
   }
 }

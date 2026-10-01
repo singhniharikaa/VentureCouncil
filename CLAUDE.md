@@ -55,7 +55,9 @@ rate-limited agent raised and killed the whole graph run mid-evaluation.
 ## Current state — what's actually done vs. untested
 
 **Done and verified:**
-- Data cleaned and seeded into Supabase: 279 YouTube + ~496 Instagram creators, 18 brands, 61 past_deals, all with pgvector embeddings.
+- Data seeded into Supabase. **Current counts: 649 creators (274 YouTube + 375 Instagram),
+  18 brands, 52 past_deals**, all with pgvector embeddings. Originally 775 / 61 — see
+  "Zero-engagement creators deleted" below.
 - `app/graph.py` LangGraph wiring — **structurally tested with mocked functions** (see "Known gotchas" below for the bug that was caught).
 
 **Now verified end-to-end against real Supabase + Gemini** (2026-08-22):
@@ -106,7 +108,7 @@ past_deals (
    list; psycopg2 adapts a list to `ARRAY[...]`, which will not cast via `%s::vector`. Always
    wrap it: `str(embed_text(text))`.
 5. **ivfflat indexes on these tables silently return too few, and WRONG, rows.** Both
-   `creators` (775 rows) and `past_deals` (61 rows) have ivfflat indexes built with pgvector's
+   `creators` (649 rows) and `past_deals` (52 rows) have ivfflat indexes built with pgvector's
    default `lists=100`, leaving under ~8 rows per list. With the default `ivfflat.probes = 1`,
    a `LIMIT 5` returned only 3 rows — and not the nearest ones (best similarity 0.60 vs 0.83
    once fixed). This silently fed the Pricing agent Rs.15k reel deals instead of the Rs.30k
@@ -138,16 +140,14 @@ past_deals (
    distance, then `data_confidence_score DESC`, then `followers_count DESC`. Note that
    `data_confidence_score` measures COMPLETENESS, not quality: a 2-follower channel with all
    four fields present still scores 100, so a `min_followers` floor is the real guard.
-9. **`engagement_rate = 0` means "not measured", NOT "no engagement".** 126 of 775
-   creators carry 0, including Instagram accounts with millions of followers (33.6% of
-   Instagram rows), and **125 of them still score data_confidence >= 75** because the
-   score credits the field merely being present. Read literally, zero put those creators
-   in the bottom percentile and cost the deal ~11 weighted points — in calibration it
-   turned a fair Instagram offer into Negotiate and a negotiable one into Reject. Zero is
-   now treated exactly like NULL in `app/agents/engagement.py` (abstain, score 40,
-   confidence 0.3), excluded from the percentile population, and flagged as
-   insufficient data by `api/adapter.py`. Note `data_confidence_score` is stored and
-   still over-credits these rows; fixing that needs a reseed.
+9. **`engagement_rate = 0` means "not measured", NOT "no engagement".** Read literally,
+   zero put those creators in the bottom percentile and cost the deal ~11 weighted points
+   — in calibration it turned a fair Instagram offer into Negotiate and a negotiable one
+   into Reject. Zero is treated exactly like NULL in `app/agents/engagement.py` (abstain,
+   score 40, confidence 0.3), excluded from the percentile population, and flagged as
+   insufficient data by `api/adapter.py`. The 126 affected rows were later deleted
+   outright (see below), but KEEP this handling: `engagement_rate IS NULL` still applies
+   to 128 creators, and any reseed can reintroduce zeros.
 10. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
 
 ## The two halves are now wired together (2026-08-22)
@@ -163,7 +163,7 @@ hardcoded `latencyMs` constants. It returned in ~3s because it never called anyt
 | endpoint | what it does |
 |---|---|
 | `GET /api/health` | engine reachable? which provider/model is pinned |
-| `GET /api/creators` | all **775** Supabase creators, **both platforms** |
+| `GET /api/creators` | every Supabase creator (**649** today), **both platforms** |
 | `GET /api/brands` | the 18 seeded brands |
 | `POST /api/evaluate` | runs the real 5-agent LangGraph pipeline on Groq |
 
@@ -245,6 +245,29 @@ backs the original call: **216 of 282 rows carry no notes value at all**. All of
 removed (types, CSV parsing, risk scoring, supervisor override, roster UI, intake warning,
 `Betting` brand category). Build and lint clean; a full council run still produces a verdict.
 Do not reintroduce without new data.
+
+## Zero-engagement creators deleted (2026-10-02)
+
+126 creators whose `engagement_rate` was 0 were deleted on request, along with the 9
+`past_deals` rows referencing them (the FK is `NO ACTION`, so the deals had to go first
+or Postgres refuses). **775 -> 649 creators, 61 -> 52 past_deals.** No orphaned deals;
+all remaining rows keep their embeddings.
+
+Worth recording honestly: those rows were *missing a measurement*, not bad creators —
+the largest was a 2.1M-follower Instagram account with a verified rate card and data
+confidence 100. The engagement handling above had already neutralised the problem, so
+the deletion was a roster-cleanliness decision rather than a fix.
+
+**A backup exists** at `backups/zero-engagement-*.json` (gitignored — it holds creator
+names and rate cards, and the repo is public). It contains every deleted row including
+embeddings, so a restore is exact.
+
+Two consequences:
+- **Comparables shrank 61 -> 52.** The Pricing agent has fewer past deals to argue from.
+  Spot-checked after deletion: the top-5 comparables for a gaming query were unchanged.
+- **Thresholds re-validated.** The original calibration used creators that no longer
+  exist, so it was re-run on the reduced roster: 50/45 still scores 10/11 with zero
+  severe misclassifications. `demo_fixtures.json` re-recorded.
 
 ## Team
 4-person team: Niharika Singh, Shubham Singh, Tushar Singh, Akash Warde. Guided by Prof. Megha Jain. No task ownership assigned in tracker by preference.

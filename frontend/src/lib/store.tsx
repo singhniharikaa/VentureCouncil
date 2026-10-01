@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Creator, Evaluation } from '../types'
+import { checkEngine, fetchCreators } from './api'
 import { loadSeedCreators } from './seed'
 
 /**
@@ -63,14 +64,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const saved = loadPersisted()
     const cachedIsEngine = saved?.source === 'engine'
 
-    // A cached ENGINE roster is authoritative and may carry local edits, so it
-    // is used as-is. A cached CSV roster is a stale 282-row YouTube-only
-    // snapshot taken while the engine was unreachable; it must not outlive the
-    // engine coming back, or the app sits in "live" mode showing fallback data.
+    // A cached ENGINE roster is used as-is (it may carry local edits), but it
+    // must not go stale: the roster is server-side data and can change under
+    // the browser. /api/health already reports the live creator count, so a
+    // cheap comparison catches it. Without this, deleting 126 creators from
+    // Supabase left every open browser showing them, and evaluating one 404d.
     if (saved && saved.creators.length && cachedIsEngine) {
       setState(saved)
       setSource('engine')
       setLoading(false)
+      checkEngine()
+        .then((health) => {
+          if (health.creators === saved.creators.length) return
+          return fetchCreators().then((creators) => {
+            setState((prev) => ({ ...prev, creators, source: 'engine' }))
+          })
+        })
+        .catch(() => {
+          // Engine unreachable: keep showing the cache rather than blanking it.
+        })
       return
     }
 

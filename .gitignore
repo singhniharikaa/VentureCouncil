@@ -24,3 +24,6 @@ Thumbs.db
 
 # --- local tooling ---
 .claude/settings.local.json
+
+# local data backups - contain creator names and rates, keep out of the public repo
+backups/

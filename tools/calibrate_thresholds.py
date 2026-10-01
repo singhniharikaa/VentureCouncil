@@ -94,7 +94,9 @@ def pick_creator(conn, niche, platform):
             FROM creators
             WHERE platform = %s AND niche ILIKE %s
               AND price_inr IS NOT NULL AND price_estimated = false
-              AND engagement_rate IS NOT NULL AND data_confidence_score >= 75
+              -- > 0, not IS NOT NULL: zero means "not measured" in this roster,
+              -- so a zero row would calibrate the bands against a data gap.
+              AND engagement_rate > 0 AND data_confidence_score >= 75
               AND followers_count >= 50000
             ORDER BY followers_count DESC
             LIMIT 1

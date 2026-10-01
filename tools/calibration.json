@@ -10,17 +10,17 @@
     "rate": 150000,
     "mult": 0.85,
     "offer": 127500,
-    "score": 59.8,
-    "verdict": "Negotiate",
+    "score": 55.2,
+    "verdict": "Accept",
     "hard_rule": false,
     "agents": {
       "audience_fit": 90,
       "engagement": 42,
-      "pricing": 55,
+      "pricing": 45,
       "risk": 60,
-      "negotiation": 30
+      "negotiation": 20
     },
-    "seconds": 8.5
+    "seconds": 8.4
   },
   {
     "id": "A2",
@@ -34,7 +34,7 @@
     "mult": 1.0,
     "offer": 150000,
     "score": 52.8,
-    "verdict": "Negotiate",
+    "verdict": "Accept",
     "hard_rule": false,
     "agents": {
       "audience_fit": 90,
@@ -43,30 +43,30 @@
       "risk": 60,
       "negotiation": 30
     },
-    "seconds": 2.3
+    "seconds": 2.7
   },
   {
     "id": "A3",
     "expect": "Accept",
     "why": "on-niche, offer at their rate",
-    "creator": "Nidhi",
+    "creator": "Arjun singh",
     "platform": "instagram",
     "niche": "Fashion",
-    "followers": 2112662,
+    "followers": 1013874,
     "rate": 15000,
     "mult": 1.0,
     "offer": 15000,
-    "score": 76.8,
+    "score": 76.1,
     "verdict": "Accept",
     "hard_rule": false,
     "agents": {
-      "audience_fit": 90,
+      "audience_fit": 88,
       "engagement": 40,
       "pricing": 85,
       "risk": 60,
       "negotiation": 100
     },
-    "seconds": 2.1
+    "seconds": 3.4
   },
   {
     "id": "A4",
@@ -79,17 +79,17 @@
     "rate": 25000,
     "mult": 1.1,
     "offer": 27500,
-    "score": 70.2,
+    "score": 69.0,
     "verdict": "Accept",
     "hard_rule": false,
     "agents": {
       "audience_fit": 90,
       "engagement": 30,
-      "pricing": 75,
-      "risk": 40,
-      "negotiation": 95
+      "pricing": 70,
+      "risk": 60,
+      "negotiation": 100
     },
-    "seconds": 23.6
+    "seconds": 26.9
   },
   {
     "id": "N1",
@@ -112,30 +112,30 @@
       "risk": 60,
       "negotiation": 20
     },
-    "seconds": 23.5
+    "seconds": 19.1
   },
   {
     "id": "N2",
     "expect": "Negotiate",
     "why": "on-niche but well over rate",
-    "creator": "Nidhi",
+    "creator": "Arjun singh",
     "platform": "instagram",
     "niche": "Fashion",
-    "followers": 2112662,
+    "followers": 1013874,
     "rate": 15000,
     "mult": 1.8,
     "offer": 27000,
-    "score": 46.0,
+    "score": 45.4,
     "verdict": "Negotiate",
     "hard_rule": false,
     "agents": {
-      "audience_fit": 90,
-      "engagement": 40,
+      "audience_fit": 88,
+      "engagement": 40.1,
       "pricing": 20,
       "risk": 70,
       "negotiation": 20
     },
-    "seconds": 17.2
+    "seconds": 24.9
   },
   {
     "id": "N3",
@@ -148,17 +148,17 @@
     "rate": 150000,
     "mult": 1.0,
     "offer": 150000,
-    "score": 45.1,
-    "verdict": "Negotiate",
+    "score": 65.3,
+    "verdict": "Accept",
     "hard_rule": false,
     "agents": {
       "audience_fit": 65,
       "engagement": 45.3,
-      "pricing": 35,
+      "pricing": 70,
       "risk": 70,
-      "negotiation": 20
+      "negotiation": 100
     },
-    "seconds": 24.7
+    "seconds": 24.0
   },
   {
     "id": "R1",
@@ -171,40 +171,40 @@
     "rate": 150000,
     "mult": 4.0,
     "offer": 600000,
-    "score": 43.7,
+    "score": 42.7,
     "verdict": "Reject",
     "hard_rule": false,
     "agents": {
       "audience_fit": 90,
       "engagement": 42,
       "pricing": 12,
-      "risk": 88,
-      "negotiation": 20
+      "risk": 90,
+      "negotiation": 10
     },
-    "seconds": 23.3
+    "seconds": 22.6
   },
   {
     "id": "R2",
     "expect": "Reject",
     "why": "five times their own rate",
-    "creator": "Nidhi",
+    "creator": "Arjun singh",
     "platform": "instagram",
     "niche": "Fashion",
-    "followers": 2112662,
+    "followers": 1013874,
     "rate": 15000,
     "mult": 5.0,
     "offer": 75000,
-    "score": 40.8,
+    "score": 42.6,
     "verdict": "Reject",
     "hard_rule": false,
     "agents": {
-      "audience_fit": 90,
-      "engagement": 40,
-      "pricing": 5,
-      "risk": 70,
+      "audience_fit": 88,
+      "engagement": 40.1,
+      "pricing": 12,
+      "risk": 92,
       "negotiation": 20
     },
-    "seconds": 18.8
+    "seconds": 24.4
   },
   {
     "id": "R3",
@@ -217,39 +217,39 @@
     "rate": 25000,
     "mult": 3.5,
     "offer": 87500,
-    "score": 25.2,
+    "score": 25.5,
     "verdict": "Reject",
     "hard_rule": false,
     "agents": {
       "audience_fit": 30,
-      "engagement": 28.8,
+      "engagement": 30,
       "pricing": 20,
       "risk": 70,
       "negotiation": 20
     },
-    "seconds": 24.0
+    "seconds": 24.5
   },
   {
     "id": "R4",
     "expect": "Reject",
     "why": "wrong niche, 3x rate",
-    "creator": "Palak Kapoor",
+    "creator": "Abhishek Chakraborty",
     "platform": "instagram",
     "niche": "Food Blogger",
-    "followers": 235884,
+    "followers": 162775,
     "rate": 5000,
     "mult": 3.0,
     "offer": 15000,
-    "score": 31.5,
+    "score": 27.5,
     "verdict": "Reject",
     "hard_rule": false,
     "agents": {
       "audience_fit": 30,
-      "engagement": 40,
-      "pricing": 30,
-      "risk": 92,
+      "engagement": 38,
+      "pricing": 20,
+      "risk": 95,
       "negotiation": 20
     },
-    "seconds": 20.9
+    "seconds": 22.7
   }
 ]
