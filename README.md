@@ -180,12 +180,30 @@ One evaluation = **5 LLM calls**, four of them concurrent.
 
 ---
 
+## Tests
+
+```bash
+python -m pytest
+```
+
+85 tests, ~40 seconds, and they need **no database, no API key and no network** —
+everything worth protecting in this system is pure logic:
+
+| File | What it pins down |
+|---|---|
+| `test_supervisor.py` | weighted scoring, the 70/45 bands, and the high-risk veto |
+| `test_adapter.py` | the engine→frontend contract; "we don't know" survives translation |
+| `test_llm.py` | rate-limit detection across provider shapes, backoff, JSON parsing |
+| `test_graph.py` | fan-out/gate/fan-in topology — every node runs exactly once |
+
+`test_graph.py` is the regression test for CLAUDE.md gotcha #1. It was verified
+by reintroducing the bug: the Supervisor then runs twice and the test fails.
+
 ## Not built yet
 
 - **Path A (discovery)** — free-text brand query → pgvector search over creators.
   Only Path B (creator + deal given) exists.
 - **Multi-creator campaigns** and budget aggregation.
-- **Test suite.**
 - Verdict thresholds are still tuned against an earlier model and need
   recalibrating for Groq.
 

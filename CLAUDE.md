@@ -98,7 +98,7 @@ past_deals (
 
 ## Known gotchas (learned the hard way, don't repeat)
 
-1. **LangGraph fan-in requires list-syntax edges.** `graph.add_edge(node, target)` called separately for each of 4 predecessors does NOT make target wait for all 4 — it fires once per predecessor, running target multiple times. Fix: `graph.add_edge([node1, node2, node3, node4], target)` — this creates a proper join. This was caught via a mocked dry-run before ever touching real data; verify it's still working if the graph structure changes.
+1. **LangGraph fan-in requires list-syntax edges.** `graph.add_edge(node, target)` called separately for each of 4 predecessors does NOT make target wait for all 4 — it fires once per predecessor, running target multiple times. Fix: `graph.add_edge([node1, node2, node3, node4], target)` — this creates a proper join. This was caught via a mocked dry-run before ever touching real data, and is now permanently guarded by `tests/test_graph.py::test_every_node_runs_exactly_once` — verified to fail when the bug is reintroduced (the Supervisor runs twice). Run `python -m pytest` after any change to the graph structure.
 2. **Windows CSV round-tripping mangles phone numbers** — pandas auto-infers all-digit strings as floats (`7007161584.0`, sometimes truncating a leading digit). Always read with `dtype={"whatsapp": str}` and validate 10-digit length after any CSV round-trip.
 3. **Regex niche-matching bugs are easy to introduce** — e.g. a pattern for `r'game'` does NOT match `"gaming"` (different letter sequence). Always dry-run a regex against the actual unique value set before trusting it, not just a few examples.
 4. **pgvector needs the embedding as a STRING, not a list.** `embed_text()` returns a Python
@@ -239,6 +239,22 @@ different answer, and the verdict alone hides how close the call was.
 
 `demo_fixtures.json` now holds Groq recordings (each tagged with `recorded_provider`,
 `recorded_model`, `recorded_at`). Regenerate any time with `demo.py --record`.
+
+## Tests
+
+`python -m pytest` — 85 tests, ~40s, **no database, no API key, no network**. A dummy
+`SUPABASE_CONN_STRING` is injected in `tests/conftest.py`; nothing ever opens a connection
+or spends Groq quota, so the suite runs even while Supabase is paused.
+
+| File | Covers |
+|---|---|
+| `test_supervisor.py` | weighted scoring, 70/45 bands and boundaries, the high-risk veto, missing-agent fallbacks |
+| `test_adapter.py` | engine->frontend contract: recommendation bands, risk severity mapping, `insufficientData`, risk flags, comp tiers |
+| `test_llm.py` | rate-limit detection across Groq/Gemini exception shapes, jittered capped backoff, JSON fence stripping, provider/model selection |
+| `test_graph.py` | topology: every node once, negotiation after pricing, supervisor last and sees all five |
+
+Add to these rather than replacing them when changing the Supervisor or the adapter — they
+encode decisions, not just behaviour.
 
 ## Demoing
 

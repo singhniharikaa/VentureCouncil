@@ -36,6 +36,7 @@ python-dotenv==1.0.0
 # Only needed if you switch to LLM_PROVIDER=gemini in .env. The import is
 # lazy, so leaving this out costs nothing while Groq stays pinned.
 # google-generativeai==0.8.5
-#
-# Test runner, once a test suite exists.
-# pytest==9.0.2
+
+# --- dev ---
+# Test suite: pytest (85 tests, no DB and no LLM needed -- `python -m pytest`)
+pytest==9.0.2
