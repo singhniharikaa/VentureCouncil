@@ -1,0 +1,41 @@
+# VentureCouncil — Python engine dependencies
+#
+#   pip install -r requirements.txt
+#
+# Versions are pinned to what the project was built and verified against
+# (Python 3.13.7, 2026-08-22) so results stay reproducible for the write-up.
+#
+# Heads-up on install size and first run:
+#   * sentence-transformers pulls torch (~2 GB). This is the slow part.
+#   * On FIRST run only, it downloads the all-MiniLM-L6-v2 model (~90 MB)
+#     from HuggingFace. Needs internet once; cached locally after that.
+
+# --- orchestration ---
+langgraph==1.2.11
+
+# --- database (Supabase / Postgres + pgvector) ---
+psycopg2-binary==2.9.12
+
+# --- embeddings: local, free, no API key (all-MiniLM-L6-v2, 384-dim) ---
+sentence-transformers==5.7.0
+
+# --- LLM providers ---
+# Groq is the pinned provider and speaks the OpenAI-compatible protocol,
+# so the `openai` SDK covers both Groq and xAI Grok.
+openai==2.21.0
+
+# --- API layer ---
+fastapi==0.135.1
+uvicorn==0.41.0
+pydantic==2.12.4
+
+# --- config ---
+python-dotenv==1.0.0
+
+# --- OPTIONAL -------------------------------------------------------------
+# Only needed if you switch to LLM_PROVIDER=gemini in .env. The import is
+# lazy, so leaving this out costs nothing while Groq stays pinned.
+# google-generativeai==0.8.5
+#
+# Test runner, once a test suite exists.
+# pytest==9.0.2
