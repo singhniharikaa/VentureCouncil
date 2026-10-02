@@ -211,46 +211,102 @@ def reset_clients():
 # public entry point
 # --------------------------------------------------------------------------
 
+class DailyLimitReached(RuntimeError):
+    """
+    The provider's per-DAY allowance is spent.
+
+    Retrying cannot help for minutes, so this fails at once with a message a
+    person can act on, instead of burning ~30 s of backoff and then surfacing a
+    raw provider error. Found on demo day: gpt-oss-120b's 200,000 tokens/day were
+    used up, and every evaluation returned an opaque 502.
+    """
+
+
+MAX_JSON_RETRIES = 2   # provider-side "failed to generate JSON" 400s
+
+
+def _is_daily_limit(exc) -> bool:
+    text = str(exc).lower()
+    return "tokens per day" in text or "requests per day" in text or "(tpd)" in text
+
+
+def _daily_limit_message(exc) -> str:
+    """e.g. 'Please try again in 1m44.5s' -> 'about 1m44.5s'. Plain string ops, no regex."""
+    text = str(exc)
+    when = ""
+    marker = "try again in "
+    i = text.lower().find(marker)
+    if i >= 0:
+        when = text[i + len(marker):].split()[0].rstrip(".,'\"")
+    return (
+        f"The free AI allowance for {model_name()} is used up for today"
+        + (f" (the provider says to retry in about {when})" if when else "")
+        + ". Wait, switch GROQ_MODEL in .env to another model (for example openai/gpt-oss-20b), "
+        "or use a key from a different Groq account."
+    )
+
+
+def _is_json_generation_failure(exc) -> bool:
+    """Groq's JSON mode sometimes answers 400 'Failed to generate JSON'. It is transient."""
+    return getattr(exc, "status_code", None) == 400 and "json" in str(exc).lower()
+
+
 def call_llm_json(prompt: str) -> dict:
     """
     Send a prompt, parse the JSON response, return it as a dict.
 
-    Retries once if the model returns something that is not valid JSON, and
-    up to MAX_RATE_LIMIT_RETRIES times with backoff on rate-limit errors.
+    Three kinds of trouble get three different treatments:
+      * rate limit (per minute)  -> back off and retry, up to MAX_RATE_LIMIT_RETRIES
+      * daily limit              -> fail at once with DailyLimitReached; retrying is futile
+      * the model's JSON is bad  -> retry (the provider's own "failed to generate
+        JSON" 400, or text that does not parse), a couple of times
+    Anything else is a real error and is raised unchanged.
     """
     attempt_prompt = prompt
-    parse_retries_left = 1
+    rate_retries = 0
+    json_retries = 0
+    parse_retries = 0
 
-    for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+    while True:
         try:
             with _get_semaphore():
                 raw = _generate(attempt_prompt)
         except Exception as exc:
-            if _is_rate_limit(exc) and attempt < MAX_RATE_LIMIT_RETRIES:
-                delay = _backoff_seconds(exc, attempt)
+            if _is_daily_limit(exc):
+                raise DailyLimitReached(_daily_limit_message(exc)) from exc
+
+            if _is_rate_limit(exc):
+                if rate_retries >= MAX_RATE_LIMIT_RETRIES:
+                    raise RuntimeError(
+                        f"{provider()} ({model_name()}) stayed rate limited after "
+                        f"{MAX_RATE_LIMIT_RETRIES} retries. Wait for the quota window to "
+                        f"reset, lower LLM_MAX_CONCURRENCY, or switch provider in .env."
+                    ) from exc
+                delay = _backoff_seconds(exc, rate_retries)
+                rate_retries += 1
                 print(
-                    f"  [llm] rate limited by {provider()} "
-                    f"({model_name()}), retrying in {delay:.1f}s "
-                    f"[{attempt + 1}/{MAX_RATE_LIMIT_RETRIES}]"
+                    f"  [llm] rate limited by {provider()} ({model_name()}), "
+                    f"retrying in {delay:.1f}s [{rate_retries}/{MAX_RATE_LIMIT_RETRIES}]"
                 )
                 time.sleep(delay)
                 continue
+
+            if _is_json_generation_failure(exc) and json_retries < MAX_JSON_RETRIES:
+                json_retries += 1
+                print(f"  [llm] {provider()} failed to generate JSON, retrying "
+                      f"[{json_retries}/{MAX_JSON_RETRIES}]")
+                continue
+
             raise
 
         try:
             return json.loads(_extract_json(raw))
         except json.JSONDecodeError:
-            if parse_retries_left:
-                parse_retries_left -= 1
+            if parse_retries < 1:
+                parse_retries += 1
                 attempt_prompt = prompt + (
                     "\n\nYour last response was not valid JSON. Respond with "
                     "ONLY the JSON object, nothing else."
                 )
                 continue
             raise
-
-    raise RuntimeError(
-        f"{provider()} ({model_name()}) stayed rate limited after "
-        f"{MAX_RATE_LIMIT_RETRIES} retries. Wait for the quota window to reset, "
-        f"lower LLM_MAX_CONCURRENCY, or switch provider in .env."
-    )
