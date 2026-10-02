@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { ArrowCircle } from './ui'
-import { useEngine } from '../lib/api'
+import { useEngine, useEngineWatch } from '../lib/api'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon, end: true },
@@ -36,6 +36,60 @@ function EngineFootnote() {
       {engine.status === 'checking' ? 'Locating engine…' : 'Offline — local scoring only.'}
       <br />
       {engine.status === 'offline' && 'No model in use; no data leaves this machine.'}
+    </div>
+  )
+}
+
+/**
+ * The one signal that answers "is this the real AI or the fake one?".
+ *
+ * It sits in the top bar of EVERY screen, large and coloured, because the
+ * difference is not cosmetic: real mode runs five LLM agents over the
+ * database, fake mode is local arithmetic with no model at all. The earlier
+ * signal was small grey text at the bottom of the sidebar, which is easy to
+ * miss, and it was only checked once when the page loaded.
+ */
+function EngineBadge() {
+  const engine = useEngineWatch()
+
+  if (engine.status === 'live') {
+    return (
+      <span
+        className="inline-flex items-center gap-2 rounded-full border border-accept/40 bg-accept-bg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-accept"
+        title={`Five ${engine.health.provider} agents over ${engine.health.creators} Supabase creators`}
+      >
+        <span className="h-2 w-2 rounded-full bg-accept" />
+        Real AI &middot; {engine.health.provider}
+      </span>
+    )
+  }
+  if (engine.status === 'offline') {
+    return (
+      <span
+        className="inline-flex items-center gap-2 rounded-full border border-reject/50 bg-reject-bg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-reject"
+        title="The Python engine is not reachable. Verdicts come from local arithmetic with no AI model."
+      >
+        <span className="h-2 w-2 rounded-full bg-reject" />
+        Fake mode &middot; no AI
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-ink-faint">
+      <span className="h-2 w-2 rounded-full bg-ink-faint" />
+      Checking&hellip;
+    </span>
+  )
+}
+
+/** Full-width warning shown only in fake mode, so it cannot be overlooked. */
+function FakeModeStrip() {
+  const engine = useEngineWatch()
+  if (engine.status !== 'offline') return null
+  return (
+    <div className="border-b border-reject/30 bg-reject px-6 py-2 text-center text-xs font-semibold text-white lg:px-10">
+      FAKE MODE &mdash; the AI engine is not connected. Results on screen are NOT from the AI
+      agents. Start it with start_demo.bat.
     </div>
   )
 }
@@ -91,6 +145,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <FakeModeStrip />
         <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-line bg-paper/85 px-6 py-4 backdrop-blur lg:px-10">
           <div className="text-sm font-bold tracking-tight lg:hidden">VENTURECOUNCIL</div>
           <div className="relative ml-auto hidden w-full max-w-md md:block">
@@ -111,6 +166,7 @@ export function Shell({ children }: { children: ReactNode }) {
             />
           </div>
           <div className="ml-auto flex items-center gap-3 md:ml-0">
+            <EngineBadge />
             <span className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-xs font-semibold">
               NS
             </span>

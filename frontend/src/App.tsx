@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { StoreProvider } from './lib/store'
 import { Shell } from './components/Shell'
 import { Dashboard } from './screens/Dashboard'
+import { Campaign } from './screens/Campaign'
 import { Discover } from './screens/Discover'
 import { NewEvaluation } from './screens/NewEvaluation'
 import { DealRoom } from './screens/DealRoom'
@@ -18,6 +19,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/discover" element={<Discover />} />
+            <Route path="/campaign" element={<Campaign />} />
             <Route path="/evaluate" element={<NewEvaluation />} />
             <Route path="/deal-room" element={<DealRoom />} />
             <Route path="/deal/:id" element={<DealDetail />} />

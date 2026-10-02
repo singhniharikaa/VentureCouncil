@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { discoverCreators, useEngine } from '../lib/api'
 import type { Candidate } from '../lib/api'
-import { NICHES } from '../lib/seed'
+import { BRAND_CATEGORIES, NICHES } from '../lib/seed'
 import {
   Card,
   EmptyState,
@@ -27,6 +27,10 @@ import {
 } from '../components/ui'
 
 const PLATFORMS = ['youtube', 'instagram']
+
+// Groq's free tier allows about two evaluations a minute, and each creator is
+// five LLM calls, so more than five makes a campaign painfully slow.
+const MAX_CAMPAIGN = 5
 
 const EXAMPLES = [
   'energy drink launch aimed at mobile gaming audiences in India',
@@ -63,6 +67,40 @@ export function Discover() {
   } | null>(null)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Campaign selection: up to five creators, in the order they were ticked.
+  const [selected, setSelected] = useState<{ id: string; name: string }[]>([])
+  const [brandName, setBrandName] = useState('')
+  const [brandCategory, setBrandCategory] = useState('')
+  const [totalBudget, setTotalBudget] = useState('')
+  const [campaignError, setCampaignError] = useState<string | null>(null)
+
+  function toggle(c: Candidate) {
+    setCampaignError(null)
+    setSelected((cur) =>
+      cur.some((s) => s.id === c.id)
+        ? cur.filter((s) => s.id !== c.id)
+        : cur.length >= MAX_CAMPAIGN
+          ? cur
+          : [...cur, { id: c.id, name: c.name }],
+    )
+  }
+
+  function startCampaign() {
+    if (!brandName.trim()) {
+      setCampaignError('Enter the brand name first.')
+      return
+    }
+    navigate('/campaign', {
+      state: {
+        creators: selected.map((s) => ({ creatorId: s.id, name: s.name })),
+        brandName: brandName.trim(),
+        brandCategory,
+        totalBudget: toInt(totalBudget),
+        brief,
+      },
+    })
+  }
 
   async function search() {
     if (brief.trim().length < 3) {
@@ -222,6 +260,9 @@ export function Discover() {
                 <CandidateCard
                   key={c.id}
                   candidate={c}
+                  checked={selected.some((s) => s.id === c.id)}
+                  canCheck={selected.length < MAX_CAMPAIGN}
+                  onToggle={() => toggle(c)}
                   onEvaluate={() =>
                     navigate('/evaluate', { state: { creatorId: c.id, brief } })
                   }
@@ -231,20 +272,85 @@ export function Discover() {
           )}
         </section>
       )}
+
+      {selected.length > 0 && (
+        <div className="sticky bottom-4 z-20 mt-8">
+          <Card className="border-ink/20 p-5 shadow-lg">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="min-w-[180px] flex-1">
+                <div className="eyebrow">
+                  Campaign &middot; {selected.length} of {MAX_CAMPAIGN} creators
+                </div>
+                <div className="mt-1 truncate text-sm text-ink-soft">
+                  {selected.map((s) => s.name).join(', ')}
+                </div>
+              </div>
+              <div className="w-44">
+                <Field label="Brand name">
+                  <TextInput value={brandName} onChange={setBrandName} placeholder="GameFuel Energy" />
+                </Field>
+              </div>
+              <div className="w-44">
+                <Field label="Category">
+                  <SelectInput
+                    value={brandCategory}
+                    onChange={setBrandCategory}
+                    options={BRAND_CATEGORIES}
+                    placeholder="Select…"
+                  />
+                </Field>
+              </div>
+              <div className="w-40">
+                <Field label="Total budget">
+                  <TextInput value={totalBudget} onChange={setTotalBudget} placeholder="50000" prefix="₹" />
+                </Field>
+              </div>
+              <PillButton onClick={startCampaign}>
+                Evaluate {selected.length} creator{selected.length === 1 ? '' : 's'}
+              </PillButton>
+            </div>
+            {campaignError && <p className="mt-2 text-xs text-reject">{campaignError}</p>}
+            <p className="mt-2 text-xs text-ink-faint">
+              Each creator is judged by five AI agents at their own listed price, then added up
+              against your total budget. About one to two minutes.
+            </p>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
 
 function CandidateCard({
   candidate: c,
+  checked,
+  canCheck,
+  onToggle,
   onEvaluate,
 }: {
   candidate: Candidate
+  checked: boolean
+  canCheck: boolean
+  onToggle: () => void
   onEvaluate: () => void
 }) {
   const match = c.similarity ?? 0
   return (
-    <Card className="flex flex-col p-5">
+    <Card className={`flex flex-col p-5 ${checked ? 'border-ink ring-1 ring-ink' : ''}`}>
+      <label
+        className={`mb-3 flex w-fit items-center gap-2 text-xs font-medium ${
+          checked || canCheck ? 'cursor-pointer text-ink-soft' : 'cursor-not-allowed text-ink-faint'
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={!checked && !canCheck}
+          onChange={onToggle}
+          className="h-4 w-4 accent-black"
+        />
+        {checked ? 'Added to campaign' : canCheck ? 'Add to campaign' : 'Campaign full (5)'}
+      </label>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-base font-bold tracking-tight">{c.name}</div>

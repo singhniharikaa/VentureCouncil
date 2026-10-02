@@ -96,7 +96,7 @@ past_deals (
 - **Contract evaluation was folded into the Risk agent**, not built as a 6th agent — avoid scope creep; only add contract_text analysis (already stubbed in `risk.py`) when there's actual contract text to evaluate (Path B optional field).
 - **Two entry paths**: Path A (discovery — brand free-text → pgvector match → brand picks N creators) and Path B (direct — creator + deal given). Both converge into the same 5-agent evaluation. **Path A is built end to end** (2026-10-02): `app/discovery.py`, `POST /api/discover`, and the `/discover` screen. Picking a candidate hands its `cr_<id>` to `/evaluate` via router state, so Path A flows into the same Path B evaluation rather than duplicating it.
 - **Discovery is hard filters + semantic ranking, not similarity alone.** Budget, platform and reach are SQL `WHERE` clauses that remove candidates outright; the vector search only orders what survives. A creator who matches the brief perfectly but costs triple the budget is not a match, and evaluating them burns five LLM calls for nothing. Filtering *after* ranking would fill the top-k with unaffordable creators. Discovery itself uses **no LLM**, so a brand can explore freely and only spend agent calls on a shortlist.
-- **Multi-creator support**: each selected creator runs the full pipeline independently in parallel. Budget aggregation (summing accepted/negotiated deals against a brand's total campaign budget) is a query-time input, NOT a stored `brands` table field — campaign budgets vary per campaign.
+- **Multi-creator support is BUILT (2026-10-02)**: `POST /api/campaign` runs each selected creator (max 5) through the SAME `run_evaluation()` as a single deal, **two at a time** (not all at once: Groq's ~8,000 tokens/min would just cause 429 retries), then `app/campaign.py` adds the verdicts up against a total budget. Accept = committed, Negotiate = tentative, Reject = not counted. One creator failing never sinks the others. The total budget is applied only to the SUM, never given to the agents — each agent judges one creator against that creator's market rate (the 80%-130% of listed price range), because feeding a campaign-wide number in would make a fair price look in/out of budget depending on how many others were picked. Timing measured live: 3 creators ~1 min, 5 creators 80-112 s. Budget is a query-time input, NOT a stored `brands` field.
 - **No live external API calls during evaluation** was an intentional scope decision for the mini-project (academic defensibility) — this refers to NOT calling live YouTube/Instagram APIs during deal evaluation. It does NOT mean avoiding Gemini/embeddings, which are core to the architecture.
 
 ## Known gotchas (learned the hard way, don't repeat)
@@ -198,9 +198,26 @@ it now reports the live engine state instead.
    Do not remove this — the two are not comparable, and a mixed history that hides the
    difference is worse than no history.
 
-Screens: `/` dashboard, `/discover` Path A search, `/evaluate` intake, `/deal-room` live
+Screens: `/` dashboard, `/discover` Path A search (tick up to 5 creators for a campaign),
+`/campaign` multi-creator result with budget bar, `/evaluate` intake, `/deal-room` live
 trace, `/deal/:id` replay, `/creators` roster + CSV import/export, `/traces` agent stats,
 `/audit` raw I/O.
+
+**Mode badge (top right of every screen)**: green "REAL AI · GROQ" or red "FAKE MODE · NO AI",
+re-checked every 5 s (`useEngineWatch`), plus a full-width red strip in fake mode. It exists
+because the app silently falls back to the fake rule-based council when the engine is not
+running, and the old signal (small grey sidebar text) was missed. It needs TWO failed checks
+in a row to flip from live to fake so one slow reply cannot raise a false alarm mid-demo, and
+it is deliberately separate from `useEngine`, which drives evaluations — a flicker there
+would restart a run in fake mode. The roster also self-upgrades from the 282-row CSV
+fallback to the real one when the engine appears, with no page reload.
+
+**"Council split" headline** now needs BOTH extremes AND a Negotiate verdict. Agents measure
+different things, so one scoring low while the rest score high is routine; it used to put
+"CLUSTER DISAGREEMENT" above a green ACCEPT on almost every deal.
+
+**Starting everything**: double-click `start_demo.bat`. The browser cannot start the Python
+engine, so without it the app runs in fake mode.
 
 `/discover` requires the engine — the vector search and embedding model both live in
 Python — so it shows an explicit "needs the engine running" card in offline mode rather
@@ -370,7 +387,7 @@ encode decisions, not just behaviour.
 2. ~~Spot-check 2-3 more creators across both platforms.~~ Done — see "Current state".
 3. ~~Wire the frontend to the Python engine.~~ Done 2026-08-22 — see the API section.
 4. Build Path A (discovery): free-text brand query → embed → pgvector search against `creators.embedding` → return ranked matches.
-5. Build budget aggregation function (pure Python, no LLM needed) for multi-creator campaigns.
+5. ~~Build budget aggregation + multi-creator campaigns.~~ Done 2026-10-02 (`app/campaign.py`).
 6. ~~FastAPI layer~~ Done 2026-08-22.
 7. FastAPI extras still missing wrapping `main.py`'s logic into `/discover` and `/evaluate` endpoints.
 7. ~~React frontend.~~ Added 2026-08-22 (see above).

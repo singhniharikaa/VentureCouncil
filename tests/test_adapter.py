@@ -140,6 +140,19 @@ def test_council_split_needs_both_extremes():
     assert verdict_to_frontend(summary, mild)["councilSplit"] is False
 
 
+@pytest.mark.parametrize("decision", ["Accept", "Reject"])
+def test_a_decisive_verdict_is_never_labelled_a_split(decision):
+    """
+    The agents measure different things, so one scoring low while the rest score
+    high is routine. It used to put a "CLUSTER DISAGREEMENT" headline above a
+    green ACCEPT on almost every deal. A split only matters when it left the
+    deal undecided.
+    """
+    summary = {"verdict": decision, "weighted_score": 68.0, "hard_rule_applied": False}
+    both = [{"recommendation": "accept"}, {"recommendation": "reject"}]
+    assert verdict_to_frontend(summary, both)["councilSplit"] is False
+
+
 # ------------------------------------------------------------- creator
 
 def test_creator_id_is_prefixed_so_the_api_can_resolve_it():

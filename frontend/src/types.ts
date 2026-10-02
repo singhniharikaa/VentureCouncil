@@ -107,6 +107,8 @@ export interface PolicyOverride {
 
 export interface Verdict {
   decision: Recommendation
+  /** 0-100 weighted council score from the Python engine (not set by the offline council). */
+  weightedScore?: number
   summary: string
   override: PolicyOverride
   councilSplit: boolean

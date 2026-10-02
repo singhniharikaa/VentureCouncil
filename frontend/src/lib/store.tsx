@@ -110,6 +110,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
+  // If we are showing the 282-row fallback roster, keep looking for the engine.
+  // Before this, the upgrade only happened on a full page reload: start the
+  // engine AFTER opening the page and the badge turned green while the roster
+  // still said 282 creators, which looks like a broken app.
+  useEffect(() => {
+    if (source !== 'csv') return
+    let alive = true
+    const id = window.setInterval(() => {
+      checkEngine()
+        .then(() => fetchCreators())
+        .then((creators) => {
+          if (!alive || !creators.length) return
+          setState((prev) => ({ ...prev, creators, source: 'engine' }))
+          setSource('engine')
+        })
+        .catch(() => {
+          // Still offline - keep the fallback and try again next tick.
+        })
+    }, 4000)
+    return () => {
+      alive = false
+      window.clearInterval(id)
+    }
+  }, [source])
+
   useEffect(() => {
     if (loading) return
     try {

@@ -27,3 +27,6 @@ Thumbs.db
 
 # local data backups - contain creator names and rates, keep out of the public repo
 backups/
+
+# local explainer video project - not part of the repo
+video/

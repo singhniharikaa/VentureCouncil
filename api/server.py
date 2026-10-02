@@ -11,6 +11,7 @@ This module is the bridge:
     GET  /api/brands     seeded brands, for the intake form
     POST /api/discover   Path A: free-text brief -> ranked creator candidates
     POST /api/evaluate   Path B: runs the real 5-agent LangGraph pipeline
+    POST /api/campaign   several creators, one total budget (Path A -> B, in bulk)
 
 Run it with:
     python -m uvicorn api.server:app --reload --port 8000
@@ -18,6 +19,7 @@ Run it with:
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +32,7 @@ from api.adapter import (
     verdict_to_frontend,
 )
 from app.config import VECTOR_PROBES_SQL, embed_text, get_connection
+from app.campaign import aggregate_budget
 from app.discovery import discover_creators, summarise_filters
 from app.graph import build_graph
 from app.llm import model_name, provider
@@ -74,6 +77,26 @@ class DiscoverRequest(BaseModel):
     realPriceOnly: bool = False
     minConfidence: int | None = None
     limit: int = Field(default=20, ge=1, le=100)
+
+
+MAX_CAMPAIGN_CREATORS = 5   # Groq free tier: ~2 evaluations/minute, see CLAUDE.md
+CAMPAIGN_WORKERS = 2        # creators evaluated at once; llm.py also caps calls
+
+
+class CampaignCreator(BaseModel):
+    creatorId: str
+    # Optional. Defaults to the creator's own listed price, the simplest offer
+    # to explain: "we offered each creator their quoted rate".
+    amountInr: int | None = Field(default=None, gt=0)
+
+
+class CampaignRequest(BaseModel):
+    creators: list[CampaignCreator] = Field(min_length=1, max_length=MAX_CAMPAIGN_CREATORS)
+    brandName: str = Field(min_length=1)
+    brandCategory: str = ""
+    totalBudget: int | None = Field(default=None, gt=0)
+    dealType: str = "integration"
+    deliverables: list[str] = []
 
 
 class EvaluateRequest(BaseModel):
@@ -258,6 +281,17 @@ def _comps(conn, niche, platform, amount, k=5):
 
 @app.post("/api/evaluate")
 def evaluate(req: EvaluateRequest):
+    return run_evaluation(req)
+
+
+def run_evaluation(req: EvaluateRequest) -> dict:
+    """
+    One full five-agent evaluation of one creator and one deal.
+
+    Kept separate from the route so /api/campaign can run it once per selected
+    creator through exactly the same code path - a campaign must not have its
+    own slightly different copy of the evaluation.
+    """
     pk = _creator_pk(req.creatorId)
 
     conn = get_connection()
@@ -368,3 +402,108 @@ def evaluate(req: EvaluateRequest):
             "percentile": percentile,
         },
     }
+
+
+def _resolve_offer(creator_id: str, amount: int | None) -> tuple[int, str]:
+    """(offer, creator name). Uses the creator's listed price unless one is given."""
+    pk = _creator_pk(creator_id)
+    conn = get_connection()
+    try:
+        creator = _load_creator(conn, pk)
+    finally:
+        conn.close()
+    offer = amount or creator.get("price_inr")
+    if not offer:
+        raise HTTPException(
+            422, f"{creator['creator_name']} has no listed price - give an amount for them."
+        )
+    return int(offer), creator["creator_name"]
+
+
+def _evaluate_one_for_campaign(c: CampaignCreator, req: CampaignRequest) -> dict:
+    """One creator inside a campaign. A failure here must not sink the others."""
+    try:
+        offer, name = _resolve_offer(c.creatorId, c.amountInr)
+    except HTTPException as exc:
+        return {"creatorId": c.creatorId, "name": c.creatorId, "offerInr": 0,
+                "status": "error", "error": str(exc.detail), "evaluation": None}
+
+    # The brand's acceptable range is anchored to the creator's MARKET RATE
+    # (80%-130% of their listed price), not to the offer and not to the
+    # campaign total. See app/campaign.py for why.
+    rate = offer
+    try:
+        conn = get_connection()
+        try:
+            listed = _load_creator(conn, _creator_pk(c.creatorId)).get("price_inr")
+        finally:
+            conn.close()
+        rate = int(listed or offer)
+    except Exception:
+        pass
+
+    try:
+        evaluation = run_evaluation(
+            EvaluateRequest(
+                creatorId=c.creatorId,
+                brandName=req.brandName,
+                brandCategory=req.brandCategory,
+                amountInr=offer,
+                dealType=req.dealType,
+                deliverables=req.deliverables,
+                brandBudgetMin=int(rate * 0.8),
+                brandBudgetMax=int(rate * 1.3),
+                brandTargetNiche=req.brandCategory or None,
+            )
+        )
+    except HTTPException as exc:
+        return {"creatorId": c.creatorId, "name": name, "offerInr": offer,
+                "status": "error", "error": str(exc.detail), "evaluation": None}
+    except Exception as exc:  # never let one creator take down the campaign
+        return {"creatorId": c.creatorId, "name": name, "offerInr": offer,
+                "status": "error", "error": f"{type(exc).__name__}: {exc}", "evaluation": None}
+
+    return {"creatorId": c.creatorId, "name": name, "offerInr": offer,
+            "status": "ok", "error": None, "evaluation": evaluation}
+
+
+def run_campaign(req: CampaignRequest) -> dict:
+    started = time.perf_counter()
+
+    # Two creators at a time. Evaluating them all at once would just trip
+    # Groq's tokens-per-minute limit and spend the time in retries; app/llm.py
+    # also caps total in-flight LLM calls, so this is a second, gentler layer.
+    with ThreadPoolExecutor(max_workers=CAMPAIGN_WORKERS) as pool:
+        results = list(pool.map(lambda c: _evaluate_one_for_campaign(c, req), req.creators))
+
+    rows = [
+        {
+            "creator_id": r["creatorId"],
+            "name": r["name"],
+            "offer": r["offerInr"],
+            "decision": (r["evaluation"]["verdict"]["decision"] if r["evaluation"] else "error"),
+        }
+        for r in results
+    ]
+    return {
+        "results": results,
+        "budget": aggregate_budget(rows, req.totalBudget),
+        "meta": {
+            "provider": provider(),
+            "model": model_name(),
+            "creators": len(req.creators),
+            "totalMs": int((time.perf_counter() - started) * 1000),
+        },
+    }
+
+
+@app.post("/api/campaign")
+def campaign(req: CampaignRequest):
+    """
+    Several creators, one total budget.
+
+    Each creator goes through the SAME five-agent evaluation as /api/evaluate
+    (run_evaluation), then the verdicts are added up against the budget. This
+    is where Path A (discovery picks N creators) turns into Path B (judge each).
+    """
+    return run_campaign(req)

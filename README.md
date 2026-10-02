@@ -89,7 +89,11 @@ npm install --prefix frontend
 > `sentence-transformers` pulls torch (~2 GB) — this is the slow step. On the
 > first run it also downloads the embedding model (~90 MB) once, then caches it.
 
-### 3. Run — two terminals, both must stay open
+### 3. Run
+
+**Easiest:** double-click `start_demo.bat`. It starts the engine and the website, waits
+until the engine answers, and opens the browser. Or by hand, in two terminals that both
+stay open:
 
 ```bash
 python -m uvicorn api.server:app --reload --port 8000
@@ -229,11 +233,25 @@ The `/discover` screen drives all of this from the browser: brief, filters, rank
 cards with match strength, and an "Evaluate this deal" button that carries the creator
 into the normal intake form.
 
+## Campaigns — several creators, one budget
+
+On `/discover`, tick up to **five** creators, enter a brand and a total budget, and press
+*Evaluate*. Each creator gets the same five-agent evaluation as a single deal (at their own
+listed price), two at a time, then the verdicts are added up:
+
+| Verdict | Counted as |
+|---|---|
+| Accept | **committed** — the brand would sign |
+| Negotiate | **tentative** — likely, but the price may move |
+| Reject | not counted |
+
+You get a budget bar, a per-creator table with a running total, and a warning if the accepted
+deals — or the accepted plus negotiable ones — go over budget. Five creators take roughly
+1–2 minutes because the free Groq tier allows about two evaluations a minute. One creator
+failing never sinks the rest. `POST /api/campaign` is the API behind it.
+
 ## Not built yet
 
-- **Multi-creator campaigns** and budget aggregation. `/api/evaluate` takes one creator
-  per call, and Groq's 8,000 tokens/min ceiling allows roughly two evaluations per
-  minute, so this needs paced execution rather than a naive loop.
 - `data_confidence_score` is stored and over-credits creators whose
   engagement rate is recorded as zero; correcting it needs a reseed.
 - Agent Traces and Audit Log read `localStorage`, so they only show runs from

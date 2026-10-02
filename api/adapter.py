@@ -206,8 +206,15 @@ def verdict_to_frontend(summary: dict, agents: list[dict]) -> dict:
     hard_rule = bool(summary.get("hard_rule_applied"))
     score = summary.get("weighted_score")
 
+    # A "council split" headline only makes sense when the disagreement is
+    # what left the deal undecided. The agents measure different things (fit,
+    # engagement, price, risk), so one scoring low while others score high is
+    # routine - it happened on almost every deal, and put a "CLUSTER
+    # DISAGREEMENT" headline above a green ACCEPT. So it now needs BOTH extremes
+    # AND a contested final verdict (Negotiate). A clear Accept or Reject means
+    # the weighted vote was decisive and there is nothing to debate.
     recs = {a["recommendation"] for a in agents}
-    split = len(recs) > 1 and "accept" in recs and "reject" in recs
+    split = decision == "negotiate" and "accept" in recs and "reject" in recs
 
     return {
         "decision": decision,

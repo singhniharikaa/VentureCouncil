@@ -11,7 +11,7 @@
  * The distinction matters enough that the UI states which mode it is in
  * rather than quietly degrading.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AgentResult, Comp, Creator, DealInput, Verdict } from '../types'
 
 export interface EngineHealth {
@@ -114,6 +114,74 @@ export function discoverCreators(brief: string, filters: DiscoverFilters = {}) {
   )
 }
 
+/** One creator's outcome inside a campaign. A failure here never sinks the rest. */
+export interface CampaignResult {
+  creatorId: string
+  name: string
+  offerInr: number
+  status: 'ok' | 'error'
+  error: string | null
+  evaluation: EvaluateResponse | null
+}
+
+export interface BudgetRow {
+  creator_id: string
+  name: string
+  offer: number
+  decision: 'accept' | 'negotiate' | 'reject' | 'error'
+  /** Running total of Accept + Negotiate deals so far ("if all of these close"). */
+  running_total: number | null
+  fits_budget: boolean | null
+}
+
+export interface CampaignBudget {
+  total_budget: number | null
+  /** Sum of Accept offers - the brand would sign these. */
+  committed: number
+  /** Sum of Negotiate offers - likely to close, but the price may move. */
+  tentative: number
+  if_all_close: number
+  remaining: number | null
+  remaining_if_all_close: number | null
+  over_budget: boolean
+  tentative_over_budget: boolean
+  counts: Record<string, number>
+  rows: BudgetRow[]
+}
+
+export interface CampaignResponse {
+  results: CampaignResult[]
+  budget: CampaignBudget
+  meta: { provider: string; model: string; creators: number; totalMs: number }
+}
+
+export interface CampaignInput {
+  creators: { creatorId: string; amountInr?: number }[]
+  brandName: string
+  brandCategory?: string
+  totalBudget?: number
+  dealType?: string
+  deliverables?: string[]
+}
+
+/**
+ * Several creators, one total budget. Each creator gets the same five-agent
+ * evaluation as a single deal, then the verdicts are added up against the
+ * budget. Slow on purpose: five creators is ~25 LLM calls and Groq's free tier
+ * allows about two evaluations a minute, so expect one to two minutes.
+ */
+export function runCampaign(input: CampaignInput) {
+  return req<CampaignResponse>(
+    '/api/campaign',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    420_000,
+  )
+}
+
 export function evaluateDeal(input: DealInput, budget?: { min: number; max: number }) {
   return req<EvaluateResponse>(
     '/api/evaluate',
@@ -154,5 +222,50 @@ export function useEngine(): EngineState {
       alive = false
     }
   }, [])
+  return state
+}
+
+/**
+ * Keeps checking the engine, for the always-visible mode badge ONLY.
+ *
+ * Deliberately separate from `useEngine`, which probes once and drives the
+ * evaluation logic. If this watcher fed DealRoom, a single slow health reply
+ * mid-run could flip the app to the fake council and restart the evaluation.
+ *
+ * It re-checks every few seconds so the badge flips if the API is stopped
+ * after the page loaded. Going from live to offline needs TWO failed checks in
+ * a row, so one slow reply does not raise a false alarm in the middle of a demo.
+ */
+export function useEngineWatch(intervalMs = 5000): EngineState {
+  const [state, setState] = useState<EngineState>({ status: 'checking' })
+  const failures = useRef(0)
+  const live = useRef(false)
+
+  useEffect(() => {
+    let alive = true
+    const probe = () =>
+      checkEngine()
+        .then((health) => {
+          if (!alive) return
+          failures.current = 0
+          live.current = true
+          setState({ status: 'live', health })
+        })
+        .catch((e) => {
+          if (!alive) return
+          failures.current += 1
+          // Already live: tolerate a single blip. Otherwise report at once.
+          if (live.current && failures.current < 2) return
+          live.current = false
+          setState({ status: 'offline', error: String(e?.message ?? e) })
+        })
+    probe()
+    const id = window.setInterval(probe, intervalMs)
+    return () => {
+      alive = false
+      window.clearInterval(id)
+    }
+  }, [intervalMs])
+
   return state
 }

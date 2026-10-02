@@ -288,7 +288,11 @@ def main():
     print(f"    hard rule (high risk can never Accept) applied: "
           f"{verdict['hard_rule_applied']}")
     print()
-    print("    thresholds:  >= 70 Accept   |   >= 45 Negotiate   |   < 45 Reject")
+    from app.supervisor import ACCEPT_AT, NEGOTIATE_AT
+    # Read from the Supervisor itself. This line used to be typed text (">= 70"),
+    # which went stale when the bands were recalibrated and made a 69.2 Accept
+    # look like a contradiction on screen.
+    print(f"    thresholds:  >= {ACCEPT_AT} Accept   |   >= {NEGOTIATE_AT} Negotiate   |   < {NEGOTIATE_AT} Reject")
     print()
     if args.record and not args.offline:
         from app.llm import model_name as _mn, provider as _pv
