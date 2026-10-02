@@ -12,7 +12,7 @@
  * rather than quietly degrading.
  */
 import { useEffect, useRef, useState } from 'react'
-import type { AgentResult, Comp, Creator, DealInput, Verdict } from '../types'
+import type { AgentResult, Comp, Creator, DealInput, Narrative, Verdict } from '../types'
 
 export interface EngineHealth {
   ok: true
@@ -69,6 +69,7 @@ export interface DiscoverResponse {
 export interface EvaluateResponse {
   agents: AgentResult[]
   verdict: Verdict
+  narrative?: Narrative | null
   comps: Comp[]
   creator: Creator
   meta: {

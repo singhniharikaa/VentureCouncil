@@ -165,7 +165,13 @@ past_deals (
    and the reasoning discloses "a fixed rule, not the AI" made the call. Do NOT try to fix
    this by thresholding the Risk SCORE: clean Instagram deals also score 40 on Risk, so a
    numeric cutoff would wrongly floor legitimate Accepts (checked against calibration data).
-11. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
+11. **A doubled backslash is collapsed when Python source is written through the shell.**
+   Regex word-boundary markers (backslash-b) written via a bash heredoc arrived as a real
+   BACKSPACE character (0x08): 14 of them, invisible in the editor. The patterns still
+   compiled; they just silently stopped matching. Write regex-bearing files with the Write
+   tool, or build the backslash with `chr(92)`. A scan for control characters below 0x20
+   (excluding newline, carriage return and tab) is a cheap check; the repo is currently clean.
+12. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
 
 ## The two halves are now wired together (2026-08-22)
 
@@ -250,6 +256,24 @@ no white flash. Two traps worth knowing: (1) `bg-ink text-white` breaks in dark 
 classes, so the Traces chart uses `var(--color-*)`. A contrast check over every screen found
 no low-contrast text in dark mode (the checker was validated: near-black text on the dark
 card scores 1.1 and is flagged, body text scores 17.3).
+
+**"Why this verdict" (2026-10-02)** - a plain-English explanation for the brand under every
+verdict: a headline, 3-4 sentences citing real numbers, and 1-3 next steps (`app/narrative.py`,
+`components/ExplanationCard.tsx`). The design rule is that the decision is NEVER the AI's to
+make here. (1) The headline ("NEGOTIATE: Bulky at Rs.35,000") is built in code from the
+Supervisor's result; the model cannot write or change it, even if it volunteers its own. (2)
+The model is told the decision is final and asked only for the "why". (3) If its text
+RECOMMENDS the opposite ("we recommend rejecting" under an Accept) it is discarded - checked
+by recommending-the-opposite patterns, NOT by the word appearing, because "do not sign until
+the payment terms are confirmed" is ordinary advice under an Accept. (4) Any failure -
+exception, malformed JSON, too short - falls back to a template built purely from the five
+findings, so a verdict is never shown without an explanation. The card's footer says which
+author wrote it ("Written by AI ..." vs "Assembled from the five findings, with no AI").
+Campaigns use the TEMPLATE only: a sixth LLM call per creator would slow the slowest screen.
+Measured cost when calm: the whole evaluation is 3-4 s and the explanation adds ~2 s. Back to
+back it is much slower: the explanation is ~1k more tokens against Groq's 8,000/min, so leave
+~30 s between evaluations when demoing or you will sit in 429 retries (33 s observed).
+The explanation is saved on the `Evaluation`, so a replay still has it.
 
 **"Council split" headline** now needs BOTH extremes AND a Negotiate verdict. Agents measure
 different things, so one scoring low while the rest score high is routine; it used to put

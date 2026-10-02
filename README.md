@@ -33,6 +33,11 @@ College mini-project — AI & Data Science.
 - **Risk is not weighted** — it acts as a veto. "High risk" floors the verdict
   at Negotiate and can never produce an Accept. That rule is deterministic
   Python, not model discretion, which is what makes the verdict defensible.
+- **Every verdict is explained in plain English.** A "Why this verdict" card gives the
+  brand the reason, the main concern and what to do next. The headline is built in code from
+  the decision and the AI is told the decision is final, so the explanation can never overturn
+  it; if the AI's text recommends the opposite, or the call fails, a template built from the
+  findings is used instead.
 - **Contract clauses are checked by fixed rules, not just the AI.** A fair deal
   with a contract demanding perpetual usage rights or unpaid exclusivity was once
   rated only "medium risk" by the model and Accepted. Now a critical clause forces

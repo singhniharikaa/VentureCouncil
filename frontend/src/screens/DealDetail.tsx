@@ -3,6 +3,7 @@ import { useStore } from '../lib/store'
 import { AgentCard } from '../components/AgentCard'
 import { DebateView } from '../components/DebateView'
 import { CompExplorer, VerdictPanel } from '../components/VerdictPanel'
+import { ExplanationCard } from '../components/ExplanationCard'
 import { Card, EmptyState, PillButton, VerdictBadge } from '../components/ui'
 
 /** Read-only replay of a stored evaluation, rebuilt from the audit record. */
@@ -69,6 +70,12 @@ export function DealDetail() {
       {deal.verdict && (
         <div className="mt-7">
           <VerdictPanel verdict={deal.verdict} />
+        </div>
+      )}
+
+      {deal.verdict && deal.narrative && (
+        <div className="mt-5">
+          <ExplanationCard narrative={deal.narrative} decision={deal.verdict.decision} />
         </div>
       )}
 

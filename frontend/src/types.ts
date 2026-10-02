@@ -126,8 +126,22 @@ export interface Comp {
   distance: number
 }
 
+/** The written explanation of a verdict, for the brand. See app/narrative.py. */
+export interface Narrative {
+  /** Built in code from the Supervisor's decision - the model never writes this. */
+  headline: string
+  explanation: string
+  next_steps: string[]
+  /** 'ai' = written by the model; 'template' = assembled from the findings, no AI. */
+  source: 'ai' | 'template'
+  model: string | null
+}
+
 export interface Evaluation {
   id: string
+  /** Why the verdict came out as it did, in plain English. Absent for runs from
+   *  the offline council and for records saved before this existed. */
+  narrative?: Narrative | null
   /** Which engine produced this verdict.
    *  'live'  = the Python engine: five LLM agents over the Supabase roster.
    *  'local' = the in-browser rule-based fallback, no model involved.

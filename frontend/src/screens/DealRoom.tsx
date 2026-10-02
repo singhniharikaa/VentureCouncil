@@ -8,8 +8,9 @@ import { AgentCard } from '../components/AgentCard'
 import { CouncilGraph } from '../components/CouncilGraph'
 import { DebateView } from '../components/DebateView'
 import { CompExplorer, VerdictPanel } from '../components/VerdictPanel'
+import { ExplanationCard } from '../components/ExplanationCard'
 import { Card, EmptyState, PillButton, VerdictBadge } from '../components/ui'
-import type { AgentId, AgentResult, DealInput, Evaluation, Recommendation } from '../types'
+import type { AgentId, AgentResult, DealInput, Evaluation, Narrative, Recommendation } from '../types'
 
 const ENGINE_LABELS: Record<AgentId, string> = {
   audience_fit: 'Audience Fit',
@@ -62,6 +63,9 @@ export function DealRoom() {
   const savedOnce = useRef(false)
   const engine = useEngine()
   const [engineError, setEngineError] = useState<string | null>(null)
+  // The written "why this verdict". Only the Python engine produces one; the
+  // offline council has no findings worth narrating.
+  const [narrative, setNarrative] = useState<Narrative | null>(null)
 
   useEffect(() => {
     if (!input) return
@@ -71,6 +75,7 @@ export function DealRoom() {
 
     if (!savedId.current) savedId.current = `ev_${Date.now().toString(36)}`
     setEngineError(null)
+    setNarrative(null)
 
     // Engine down: fall back to the local TypeScript council so the UI still
     // works, but the banner says plainly that no model was involved.
@@ -84,6 +89,7 @@ export function DealRoom() {
     evaluateDeal(input)
       .then((res) => {
         if (cancelled) return
+        setNarrative(res.narrative ?? null)
         setProgress({ agents: res.agents, verdict: res.verdict, comps: res.comps, done: true })
       })
       .catch((e) => {
@@ -119,6 +125,7 @@ export function DealRoom() {
         engine.status === 'live'
           ? `${engine.health.provider}/${engine.health.model}`
           : 'council-local (no model)',
+      narrative,
       agents: progress.agents,
       verdict: progress.verdict,
       comps: progress.comps,
@@ -224,6 +231,12 @@ export function DealRoom() {
       {verdict && (
         <div className="mt-9">
           <VerdictPanel verdict={verdict} />
+        </div>
+      )}
+
+      {verdict && narrative && (
+        <div className="mt-5">
+          <ExplanationCard narrative={narrative} decision={verdict.decision} />
         </div>
       )}
 

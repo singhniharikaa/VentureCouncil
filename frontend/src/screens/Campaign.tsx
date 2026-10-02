@@ -94,6 +94,7 @@ export function Campaign() {
         model: `${result.meta.provider}/${result.meta.model}`,
         agents: r.evaluation.agents,
         verdict: r.evaluation.verdict,
+        narrative: r.evaluation.narrative ?? null,
         comps: r.evaluation.comps,
         humanReviewed: false,
         humanOverride: null,

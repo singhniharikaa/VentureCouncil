@@ -34,6 +34,7 @@ from api.adapter import (
 from app.config import VECTOR_PROBES_SQL, embed_text, get_connection
 from app.campaign import aggregate_budget, suggest_within_budget
 from app.discovery import discover_creators, summarise_filters
+from app.narrative import build_facts, write_narrative
 from app.graph import build_graph
 from app.llm import model_name, provider
 
@@ -302,9 +303,13 @@ def evaluate(req: EvaluateRequest):
     return run_evaluation(req)
 
 
-def run_evaluation(req: EvaluateRequest) -> dict:
+def run_evaluation(req: EvaluateRequest, narrative_ai: bool = True) -> dict:
     """
     One full five-agent evaluation of one creator and one deal.
+
+    `narrative_ai` controls only how the written explanation is produced: True
+    asks the model to write it (one extra call), False builds it from the
+    agents' findings with no AI. Campaigns pass False - see app/narrative.py.
 
     Kept separate from the route so /api/campaign can run it once per selected
     creator through exactly the same code path - a campaign must not have its
@@ -396,9 +401,15 @@ def run_evaluation(req: EvaluateRequest) -> dict:
     if not summary:
         raise HTTPException(502, "Council finished without producing a verdict")
 
+    verdict_fe = verdict_to_frontend(summary, agents)
+    # Written AFTER the decision, and never able to change it: write_narrative
+    # builds the headline in code and never raises (it degrades to a template).
+    narrative = write_narrative(build_facts(creator, state, agents, verdict_fe), use_ai=narrative_ai)
+
     return {
         "agents": agents,
-        "verdict": verdict_to_frontend(summary, agents),
+        "verdict": verdict_fe,
+        "narrative": narrative,
         "comps": [comp_to_frontend(c, i) for i, c in enumerate(comps)],
         "creator": creator_to_frontend(
             {
@@ -472,7 +483,8 @@ def _evaluate_one_for_campaign(c: CampaignCreator, req: CampaignRequest) -> dict
                 brandBudgetMin=int(rate * 0.8),
                 brandBudgetMax=int(rate * 1.3),
                 brandTargetNiche=req.brandCategory or None,
-            )
+            ),
+            narrative_ai=False,   # a sixth call per creator would slow the slowest screen
         )
     except HTTPException as exc:
         return {"creatorId": c.creatorId, "name": name, "offerInr": offer,

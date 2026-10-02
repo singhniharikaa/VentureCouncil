@@ -114,7 +114,7 @@ def server():
 
 
 def fake_eval(decision_by_id):
-    def _run(req):
+    def _run(req, **kw):
         return {"verdict": {"decision": decision_by_id[req.creatorId]},
                 "agents": [], "comps": [], "creator": {}, "meta": {}}
     return _run
@@ -156,7 +156,7 @@ def test_results_keep_the_order_creators_were_given(server, monkeypatch):
 def test_one_creator_failing_does_not_sink_the_campaign(server, monkeypatch):
     stub_offers(monkeypatch, server, {"cr_1": 10_000, "cr_2": 20_000})
 
-    def flaky(req):
+    def flaky(req, **kw):
         if req.creatorId == "cr_1":
             raise RuntimeError("groq exploded")
         return {"verdict": {"decision": "accept"}, "agents": [], "comps": [],
@@ -270,3 +270,23 @@ def test_no_usable_budget_suggests_nothing(budget):
 
 def test_empty_candidate_list():
     assert suggest_within_budget([], 100_000)["ids"] == []
+
+
+def test_campaigns_skip_the_ai_narrative(server, monkeypatch):
+    """
+    A sixth call per creator would slow the slowest screen: five creators are
+    already 25 LLM calls against a free tier allowing ~2 evaluations a minute.
+    """
+    stub_offers(monkeypatch, server, {"cr_1": 10_000, "cr_2": 20_000})
+    seen = []
+
+    def spy(req, **kw):
+        seen.append(kw)
+        return {"verdict": {"decision": "accept"}, "agents": [], "comps": [],
+                "creator": {}, "meta": {}}
+
+    monkeypatch.setattr(server, "run_evaluation", spy)
+    server.run_campaign(server.CampaignRequest(
+        creators=[{"creatorId": "cr_1"}, {"creatorId": "cr_2"}],
+        brandName="Acme", totalBudget=100_000))
+    assert seen and all(kw.get("narrative_ai") is False for kw in seen)
