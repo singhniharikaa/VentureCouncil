@@ -6,6 +6,7 @@ that can force the Supervisor's hand: high risk -> verdict floor is
 "negotiate", never "accept".
 """
 from app.config import call_llm_json
+from app.contract import apply_contract_rules
 from app.state import DealState
 
 
@@ -46,4 +47,8 @@ Respond ONLY with valid JSON, no markdown, no preamble:
   "confidence": <0.0-1.0>
 }}"""
     result = call_llm_json(prompt)
+    # Fixed rules on top of the model's answer: a critical contract clause forces
+    # "high risk", so the Supervisor's veto no longer depends on the model
+    # choosing that word. See app/contract.py.
+    result = apply_contract_rules(result, state.get("contract_text"))
     return {"risk_result": result}

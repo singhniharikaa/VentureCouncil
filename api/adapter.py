@@ -189,7 +189,7 @@ def agent_to_frontend(
         "recommendation": recommendation,
         "headline": f"{component} · {score}/100" if score is not None else component,
         "reasoning": result.get("reasoning") or "",
-        "flags": _flags_for(agent_id, state, extra),
+        "flags": _flags_for(agent_id, state, extra) + list(result.get("contract_flags") or []),
         "insufficientData": insufficient,
         "trace": trace,
         "typed": _typed_for(agent_id, result, state, extra),

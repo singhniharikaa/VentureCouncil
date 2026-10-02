@@ -148,7 +148,23 @@ past_deals (
    insufficient data by `api/adapter.py`. The 126 affected rows were later deleted
    outright (see below), but KEEP this handling: `engagement_rate IS NULL` still applies
    to 128 creators, and any reseed can reintroduce zeros.
-10. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
+10. **The veto depended on the model saying the words "high risk" — and the model would not.**
+   The Supervisor floors a deal at Negotiate only when the Risk agent LABELS it "high risk".
+   Tested live on 2026-10-02: Bulky at a fair Rs.35,000 wrapped in perpetual unlimited usage
+   rights, 24 months of UNCOMPENSATED exclusivity, Net-90 payment and no kill fee was rated
+   only "medium risk" (score 40), so the veto never fired and the deal was **ACCEPTED**. The
+   score showed the model noticed; it just chose a softer word. `app/contract.py` now scans
+   the contract by fixed pattern, and a CRITICAL clause (perpetual/unlimited usage, IP
+   assignment, uncompensated exclusivity) forces `verdict_component = "high risk"` and caps
+   the score at 30 — the existing Supervisor rule then makes Accept impossible. Same deal,
+   same agents, only the contract changed: ACCEPT -> NEGOTIATE with a visible
+   `HIGH_RISK_NO_ACCEPT` override; a reasonable contract is left alone. Soft clauses (long
+   payment terms, no kill fee) are shown as flags but do NOT force the label — a rule that
+   fires on every ordinary contract would be noise. The model still writes the explanation,
+   and the reasoning discloses "a fixed rule, not the AI" made the call. Do NOT try to fix
+   this by thresholding the Risk SCORE: clean Instagram deals also score 40 on Risk, so a
+   numeric cutoff would wrongly floor legitimate Accepts (checked against calibration data).
+11. **File paths in scripts must be relative**, not sandbox-absolute (`/mnt/user-data/outputs/...`) — always double check before handing off a script to run locally on Windows.
 
 ## The two halves are now wired together (2026-08-22)
 
@@ -351,7 +367,7 @@ Three things were found while doing it, and they mattered more than the numbers:
 
 ## Tests
 
-`python -m pytest` — 85 tests, ~40s, **no database, no API key, no network**. A dummy
+`python -m pytest` — 179 tests, ~30s, **no database, no API key, no network**. A dummy
 `SUPABASE_CONN_STRING` is injected in `tests/conftest.py`; nothing ever opens a connection
 or spends Groq quota, so the suite runs even while Supabase is paused.
 
@@ -361,6 +377,9 @@ or spends Groq quota, so the suite runs even while Supabase is paused.
 | `test_adapter.py` | engine->frontend contract: recommendation bands, risk severity mapping, `insufficientData`, risk flags, comp tiers |
 | `test_llm.py` | rate-limit detection across Groq/Gemini exception shapes, jittered capped backoff, JSON fence stripping, provider/model selection |
 | `test_graph.py` | topology: every node once, negotiation after pricing, supervisor last and sees all five |
+| `test_contract.py` | fixed contract rules: critical clauses force "high risk", reasonable contracts untouched, and the full path to a verdict (a great deal + nasty contract can no longer be Accepted) |
+| `test_campaign.py` | budget arithmetic (committed / tentative / over budget / running total) and campaign orchestration (order kept, one failure does not sink the rest) |
+| `test_discovery.py`, `test_engagement.py` | the three vector-search gotchas; zero engagement treated as "not measured" |
 
 Add to these rather than replacing them when changing the Supervisor or the adapter — they
 encode decisions, not just behaviour.

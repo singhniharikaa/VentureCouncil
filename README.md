@@ -33,6 +33,10 @@ College mini-project — AI & Data Science.
 - **Risk is not weighted** — it acts as a veto. "High risk" floors the verdict
   at Negotiate and can never produce an Accept. That rule is deterministic
   Python, not model discretion, which is what makes the verdict defensible.
+- **Contract clauses are checked by fixed rules, not just the AI.** A fair deal
+  with a contract demanding perpetual usage rights or unpaid exclusivity was once
+  rated only "medium risk" by the model and Accepted. Now a critical clause forces
+  "high risk", so the veto fires: the same deal goes ACCEPT → NEGOTIATE.
 
 | Layer | What |
 |---|---|
@@ -192,7 +196,7 @@ One evaluation = **5 LLM calls**, four of them concurrent.
 python -m pytest
 ```
 
-85 tests, ~40 seconds, and they need **no database, no API key and no network** —
+179 tests, ~30 seconds, and they need **no database, no API key and no network** —
 everything worth protecting in this system is pure logic:
 
 | File | What it pins down |
