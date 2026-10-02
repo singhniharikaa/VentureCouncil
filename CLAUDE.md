@@ -215,6 +215,18 @@ it now reports the live engine state instead.
    Do not remove this — the two are not comparable, and a mixed history that hides the
    difference is worse than no history.
 
+**New Evaluation** (`/evaluate`) has two modes in one page, switched by `?mode=multiple` in the
+URL: **Single deal** (one creator, one offer -> `/deal-room`) and **Multiple deals** (up to 5
+creators, one budget -> `/campaign`). Single deal is three numbered steps (creator, offer,
+optional contract) with a live summary + checklist on the right. The creator is chosen with a
+searchable `CreatorPicker`, not a 649-item `<select>`. Two things worth knowing: (1) the form
+used to read only `integrationPriceInr`/`dedicatedPriceInr`, which are NULL for every Instagram
+creator, so it told the brand "no rate on file" for 375 creators while the engine was in fact
+using their `priceInr` — `listedPrice()` in `lib/format.ts` now falls back to it; (2) the old
+"Upload draft contract" box said the file was "stored for the record" when nothing was stored,
+so it was removed rather than left lying. The contract section has one-click "Reasonable" /
+"Risky" example contracts for demonstrating the high-risk veto.
+
 Screens: `/` dashboard, `/discover` Path A search (tick up to 5 creators for a campaign),
 `/campaign` multi-creator result with budget bar, `/evaluate` intake, `/deal-room` live
 trace, `/deal/:id` replay, `/creators` roster + CSV import/export, `/traces` agent stats,
