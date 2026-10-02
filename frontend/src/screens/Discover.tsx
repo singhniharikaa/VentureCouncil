@@ -13,7 +13,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { discoverCreators, useEngine } from '../lib/api'
-import type { Candidate } from '../lib/api'
+import type { BudgetSuggestion, Candidate } from '../lib/api'
 import { BRAND_CATEGORIES, NICHES } from '../lib/seed'
 import {
   Card,
@@ -60,6 +60,8 @@ export function Discover() {
   const [budgetMax, setBudgetMax] = useState('')
   const [minFollowers, setMinFollowers] = useState('10000')
   const [realPriceOnly, setRealPriceOnly] = useState(false)
+  // What the brand's budget suggested, so the screen can explain the pre-ticked set.
+  const [suggestion, setSuggestion] = useState<BudgetSuggestion | null>(null)
 
   const [results, setResults] = useState<{
     candidates: Candidate[]
@@ -117,9 +119,23 @@ export function Discover() {
         budgetMax: toInt(budgetMax),
         minFollowers: toInt(minFollowers),
         realPriceOnly,
+        totalBudget: toInt(totalBudget),
         limit: 20,
       })
       setResults({ candidates: res.candidates, filters: res.filters })
+      // A new search starts a new shortlist. With a total budget the best-matching
+      // set that fits is pre-ticked (the brand can still change it); without one
+      // nothing is ticked.
+      setSuggestion(res.suggestion)
+      setCampaignError(null)
+      setSelected(
+        res.suggestion
+          ? res.suggestion.ids
+              .map((id) => res.candidates.find((c) => c.id === id))
+              .filter((c): c is Candidate => !!c)
+              .map((c) => ({ id: c.id, name: c.name }))
+          : [],
+      )
     } catch (e) {
       setError(String((e as Error)?.message ?? e))
       setResults(null)
@@ -185,7 +201,16 @@ export function Discover() {
           ))}
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 rounded-xl border border-line bg-paper p-4">
+          <Field
+            label="Total campaign budget (optional)"
+            hint="Enter what you can spend in total and we will suggest the best-matching creators that fit inside it."
+          >
+            <TextInput value={totalBudget} onChange={setTotalBudget} placeholder="e.g. 100000" prefix="₹" />
+          </Field>
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Platform" hint="Blank = both">
             <SelectInput
               value={platform}
@@ -202,7 +227,7 @@ export function Discover() {
               placeholder="Any niche"
             />
           </Field>
-          <Field label="Budget per creator" hint="Excludes anyone priced above">
+          <Field label="Price range per creator" hint="Excludes anyone priced outside it">
             <div className="flex items-center gap-2">
               <TextInput value={budgetMin} onChange={setBudgetMin} placeholder="min" prefix="₹" />
               <TextInput value={budgetMax} onChange={setBudgetMax} placeholder="max" prefix="₹" />
@@ -248,6 +273,31 @@ export function Discover() {
               </span>
             )}
           </div>
+
+          {suggestion && (
+            <Card
+              className={`mb-4 p-4 text-sm ${
+                suggestion.count > 0 ? 'border-accept/30 bg-accept-bg' : 'border-negotiate/30 bg-negotiate-bg'
+              }`}
+            >
+              {suggestion.count > 0 ? (
+                <>
+                  <strong>
+                    Suggested campaign: {suggestion.count} creator{suggestion.count === 1 ? '' : 's'} for{' '}
+                    ₹{suggestion.total.toLocaleString('en-IN')} of your ₹
+                    {suggestion.totalBudget.toLocaleString('en-IN')} budget
+                  </strong>{' '}
+                  (₹{(suggestion.remaining ?? 0).toLocaleString('en-IN')} left). They are ticked below,
+                  best match first. Untick any, or tick others, then press Evaluate.
+                </>
+              ) : (
+                <>
+                  <strong>Nobody in these results fits inside ₹{suggestion.totalBudget.toLocaleString('en-IN')}.</strong>{' '}
+                  Raise the budget, or relax the niche, platform or audience filters.
+                </>
+              )}
+            </Card>
+          )}
 
           {results.candidates.length === 0 ? (
             <EmptyState

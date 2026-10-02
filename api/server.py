@@ -32,7 +32,7 @@ from api.adapter import (
     verdict_to_frontend,
 )
 from app.config import VECTOR_PROBES_SQL, embed_text, get_connection
-from app.campaign import aggregate_budget
+from app.campaign import aggregate_budget, suggest_within_budget
 from app.discovery import discover_creators, summarise_filters
 from app.graph import build_graph
 from app.llm import model_name, provider
@@ -76,6 +76,9 @@ class DiscoverRequest(BaseModel):
     maxFollowers: int | None = None
     realPriceOnly: bool = False
     minConfidence: int | None = None
+    # The brand's TOTAL campaign budget. When given, the response also suggests a
+    # set of creators that fits inside it (best matches first).
+    totalBudget: int | None = Field(default=None, gt=0)
     limit: int = Field(default=20, ge=1, le=100)
 
 
@@ -186,11 +189,17 @@ def discover(req: DiscoverRequest):
     LLM is involved, so a brand can explore the roster freely and only spend
     agent calls on the handful of creators it actually shortlists.
     """
+    # No single creator can cost more than the whole campaign budget, so the
+    # total also acts as a ceiling on each creator's price.
+    budget_max = req.budgetMax
+    if req.totalBudget and (budget_max is None or budget_max > req.totalBudget):
+        budget_max = req.totalBudget
+
     filters = dict(
         platform=req.platform,
         niche=req.niche,
         budget_min=req.budgetMin,
-        budget_max=req.budgetMax,
+        budget_max=budget_max,
         min_followers=req.minFollowers,
         max_followers=req.maxFollowers,
         real_price_only=req.realPriceOnly,
@@ -212,9 +221,18 @@ def discover(req: DiscoverRequest):
         creator["distance"] = r.get("distance")
         candidates.append(creator)
 
+    suggestion = None
+    if req.totalBudget:
+        suggestion = suggest_within_budget(
+            [{"id": c["id"], "price": c.get("priceInr")} for c in candidates],
+            req.totalBudget,
+        )
+        suggestion["totalBudget"] = req.totalBudget
+
     return {
         "candidates": candidates,
         "filters": summarise_filters(**filters),
+        "suggestion": suggestion,
         "meta": {"brief": req.brief, "returned": len(candidates), "limit": req.limit},
     }
 

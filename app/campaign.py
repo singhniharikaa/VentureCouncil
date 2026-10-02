@@ -80,3 +80,57 @@ def aggregate_budget(rows: list[dict], total_budget: Optional[int]) -> dict:
         "counts": counts,
         "rows": out_rows,
     }
+
+
+DEFAULT_MAX_CREATORS = 5   # matches the campaign limit (Groq free-tier pacing)
+
+
+def suggest_within_budget(
+    ranked: list[dict],
+    total_budget: Optional[int],
+    max_creators: int = DEFAULT_MAX_CREATORS,
+) -> dict:
+    """
+    "I have Rs.X for the whole campaign - who should I pick?"
+
+    `ranked` is the candidate list in the order the search ranked it, best match
+    first, each item {"id", "price"}. Walk it in that order and take every
+    creator whose price still fits in what is left, until the budget or the
+    creator limit runs out.
+
+    Deliberately greedy on MATCH QUALITY, not on head-count: the best-matching
+    creators come first and cheaper ones only fill the leftover. It does not
+    scan for the combination that squeezes in the most creators, because a brand
+    asking for the right creators would rather have 3 strong matches than 5 weak
+    ones. A creator that does not fit is skipped, not treated as the end of the
+    list - a cheaper match further down may still fit.
+
+    Creators with no price are never suggested: a budget cannot be checked
+    against an unknown cost.
+    """
+    if not total_budget or total_budget <= 0:
+        return {"ids": [], "total": 0, "remaining": None, "count": 0, "skipped": 0}
+
+    ids: list[str] = []
+    spent = 0
+    skipped = 0
+    for item in ranked:
+        if len(ids) >= max_creators:
+            break
+        price = item.get("price")
+        if not price or price <= 0:
+            skipped += 1
+            continue
+        if spent + price <= total_budget:
+            ids.append(item["id"])
+            spent += int(price)
+        else:
+            skipped += 1
+
+    return {
+        "ids": ids,
+        "total": spent,
+        "remaining": total_budget - spent,
+        "count": len(ids),
+        "skipped": skipped,
+    }

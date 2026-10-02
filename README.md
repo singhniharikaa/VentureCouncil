@@ -239,7 +239,9 @@ into the normal intake form.
 
 ## Campaigns — several creators, one budget
 
-On `/discover`, tick up to **five** creators, enter a brand and a total budget, and press
+On `/discover`, either type a **total campaign budget** and get the best-matching set of
+creators that fits inside it pre-ticked (best matches first, never over budget), or tick
+creators yourself. Either way you can tick up to **five** creators, enter a brand and a total budget, and press
 *Evaluate*. Each creator gets the same five-agent evaluation as a single deal (at their own
 listed price), two at a time, then the verdicts are added up:
 

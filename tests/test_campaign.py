@@ -8,7 +8,7 @@ creator is evaluated through the same code path as a single deal.
 """
 import pytest
 
-from app.campaign import aggregate_budget
+from app.campaign import aggregate_budget, suggest_within_budget
 
 
 def row(name, offer, decision, cid=None):
@@ -191,3 +191,82 @@ def test_more_than_five_creators_is_rejected(server):
 def test_an_empty_campaign_is_rejected(server):
     with pytest.raises(Exception):
         server.CampaignRequest(creators=[], brandName="Acme")
+
+
+# ------------------------------------------------ "who fits my budget?"
+
+def ranked(*prices):
+    """Candidates in rank order (best match first), ids c1, c2, ..."""
+    return [{"id": f"c{i + 1}", "price": p} for i, p in enumerate(prices)]
+
+
+def test_takes_best_matches_first_while_they_fit():
+    out = suggest_within_budget(ranked(30_000, 20_000, 10_000), 100_000)
+    assert out["ids"] == ["c1", "c2", "c3"]
+    assert out["total"] == 60_000 and out["remaining"] == 40_000
+
+
+def test_stops_when_the_budget_runs_out():
+    out = suggest_within_budget(ranked(40_000, 40_000, 40_000), 100_000)
+    assert out["ids"] == ["c1", "c2"]                # a third would be 120k
+    assert out["total"] == 80_000
+
+
+def test_a_creator_that_does_not_fit_is_skipped_not_the_end_of_the_list():
+    """A cheaper match further down can still fit - skipping, not stopping."""
+    out = suggest_within_budget(ranked(50_000, 80_000, 30_000, 15_000), 100_000)
+    assert out["ids"] == ["c1", "c3", "c4"]          # c2 (80k) skipped; c3, c4 still fit
+    assert out["skipped"] == 1
+
+
+def test_match_quality_beats_head_count():
+    """
+    Greedy on rank, not on the most creators: the best match is taken even
+    though skipping it would have fitted more cheap creators in.
+    """
+    out = suggest_within_budget(ranked(90_000, 10_000, 10_000, 10_000), 100_000)
+    assert out["ids"][0] == "c1"
+    assert out["total"] <= 100_000
+
+
+def test_never_exceeds_the_budget():
+    for budget in (1, 5_000, 25_000, 99_999, 100_000):
+        out = suggest_within_budget(ranked(30_000, 25_000, 20_000, 10_000, 5_000, 1_000), budget)
+        assert out["total"] <= budget
+        assert out["remaining"] == budget - out["total"]
+
+
+def test_respects_the_creator_limit():
+    out = suggest_within_budget(ranked(*[1_000] * 10), 1_000_000, max_creators=3)
+    assert out["count"] == 3 and out["ids"] == ["c1", "c2", "c3"]
+
+
+def test_default_limit_is_five():
+    assert suggest_within_budget(ranked(*[1_000] * 10), 1_000_000)["count"] == 5
+
+
+def test_nobody_fits():
+    out = suggest_within_budget(ranked(200_000, 150_000), 100_000)
+    assert out["ids"] == [] and out["total"] == 0 and out["remaining"] == 100_000
+    assert out["skipped"] == 2
+
+
+def test_unpriced_creators_are_never_suggested():
+    """A budget cannot be checked against an unknown cost."""
+    out = suggest_within_budget(
+        [{"id": "a", "price": None}, {"id": "b", "price": 0}, {"id": "c", "price": 10_000}], 100_000)
+    assert out["ids"] == ["c"]
+
+
+def test_exactly_the_budget_fits():
+    assert suggest_within_budget(ranked(100_000), 100_000)["ids"] == ["c1"]
+
+
+@pytest.mark.parametrize("budget", [None, 0, -5])
+def test_no_usable_budget_suggests_nothing(budget):
+    out = suggest_within_budget(ranked(10_000), budget)
+    assert out["ids"] == [] and out["remaining"] is None
+
+
+def test_empty_candidate_list():
+    assert suggest_within_budget([], 100_000)["ids"] == []

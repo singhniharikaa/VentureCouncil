@@ -38,7 +38,21 @@ export interface DiscoverFilters {
   maxFollowers?: number
   realPriceOnly?: boolean
   minConfidence?: number
+  /** The brand's TOTAL campaign budget. The response then also suggests a set
+   *  of creators that fits inside it, best matches first. */
+  totalBudget?: number
   limit?: number
+}
+
+export interface BudgetSuggestion {
+  /** Candidate ids, best match first, whose prices add up to within the budget. */
+  ids: string[]
+  total: number
+  remaining: number | null
+  count: number
+  /** Candidates left out because they did not fit what remained. */
+  skipped: number
+  totalBudget: number
 }
 
 export interface DiscoverResponse {
@@ -47,6 +61,8 @@ export interface DiscoverResponse {
    *  WHY the pool is what it is rather than presenting a ranked list with no
    *  explanation of what was excluded. */
   filters: string[]
+  /** Present only when a total budget was sent. */
+  suggestion: BudgetSuggestion | null
   meta: { brief: string; returned: number; limit: number }
 }
 
