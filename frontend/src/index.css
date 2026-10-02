@@ -16,7 +16,50 @@
   --color-reject: #c0392b;
   --color-reject-bg: #fbecea;
 
+  /* Text/icons that sit ON a filled ink surface (primary buttons, the logo
+     tile, selected pills). In light mode ink is near-black so this is white;
+     in dark mode ink flips to near-white, so this must flip to near-black or
+     every primary button becomes white text on a white button. */
+  --color-on-ink: #ffffff;
+  --color-on-reject: #ffffff;
+  /* Empty track behind progress bars. */
+  --color-track: #f0f0ed;
+
   --radius-card: 22px;
+}
+
+/* Pulse colour for the "thinking" halo, as bare RGB so the keyframe can set its alpha. */
+:root {
+  --halo: 10, 10, 10;
+  color-scheme: light;
+}
+
+/* Dark theme. Every colour in the app comes from these tokens, so overriding
+   them here re-themes everything at once. Dark is the default; see the inline
+   script in index.html, which sets data-theme before first paint so there is no
+   white flash. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --halo: 241, 241, 238;
+
+  --color-ink: #f2f2ee;
+  --color-ink-soft: #a6a9b0;
+  --color-ink-faint: #72767e;
+  --color-paper: #0c0d0f;
+  --color-surface: #15171a;
+  --color-line: #26292e;
+  --color-line-strong: #383c43;
+
+  --color-accept: #3ecf8e;
+  --color-accept-bg: #11261c;
+  --color-negotiate: #e6a93d;
+  --color-negotiate-bg: #2a2112;
+  --color-reject: #f26d62;
+  --color-reject-bg: #2c1613;
+
+  --color-on-ink: #0c0d0f;
+  --color-on-reject: #1b0c0a;
+  --color-track: #272a2f;
 }
 
 html,
@@ -109,9 +152,9 @@ body {
 }
 
 @keyframes halo {
-  0%   { box-shadow: 0 0 0 0 rgba(10, 10, 10, 0.16); }
-  70%  { box-shadow: 0 0 0 14px rgba(10, 10, 10, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(10, 10, 10, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(var(--halo), 0.22); }
+  70%  { box-shadow: 0 0 0 14px rgba(var(--halo), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--halo), 0); }
 }
 
 @keyframes rise {

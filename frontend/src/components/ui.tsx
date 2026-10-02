@@ -39,7 +39,7 @@ export function PillButton({
     'inline-flex items-center gap-2.5 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed'
   const styles =
     variant === 'solid'
-      ? 'bg-ink text-white hover:bg-ink/85'
+      ? 'bg-ink text-on-ink hover:bg-ink/85'
       : 'border border-line-strong bg-surface text-ink hover:border-ink'
   return (
     <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${styles} ${className}`}>
@@ -50,7 +50,7 @@ export function PillButton({
 
 export function ArrowCircle() {
   return (
-    <span className="grid h-6 w-6 place-items-center rounded-full bg-white/20">
+    <span className="grid h-6 w-6 place-items-center rounded-full bg-on-ink/20">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
         <path d="M2 6h8M6.5 2.5 10 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -224,7 +224,7 @@ export function TogglePill({
       aria-pressed={active}
       className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
         active
-          ? 'border-ink bg-ink text-white'
+          ? 'border-ink bg-ink text-on-ink'
           : 'border-line-strong bg-surface text-ink hover:border-ink'
       }`}
     >

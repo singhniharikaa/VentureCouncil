@@ -79,7 +79,7 @@ export function Dashboard() {
                 type="button"
                 onClick={() => setFilter(f)}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition ${
-                  filter === f ? 'border-ink bg-ink text-white' : 'border-line-strong hover:border-ink'
+                  filter === f ? 'border-ink bg-ink text-on-ink' : 'border-line-strong hover:border-ink'
                 }`}
               >
                 {f}

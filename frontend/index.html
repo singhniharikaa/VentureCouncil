@@ -4,7 +4,17 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>venturecouncil-frontend</title>
+    <title>VentureCouncil</title>
+    <script>
+      // Runs before first paint so the page never flashes white. Dark is the
+      // default; the header toggle stores an explicit choice.
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem('vc-theme') === 'light' ? 'light' : 'dark'
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark'
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

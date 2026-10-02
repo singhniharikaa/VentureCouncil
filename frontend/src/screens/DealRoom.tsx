@@ -367,14 +367,14 @@ function ReviewBar({
             type="button"
             onClick={() => setChoice(v)}
             className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium capitalize transition ${
-              choice === v ? 'border-ink bg-ink text-white' : 'border-line-strong hover:border-ink'
+              choice === v ? 'border-ink bg-ink text-on-ink' : 'border-line-strong hover:border-ink'
             }`}
           >
             {v}
             {v === systemVerdict && (
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${
-                  choice === v ? 'bg-white/20' : 'bg-paper text-ink-faint'
+                  choice === v ? 'bg-on-ink/20' : 'bg-paper text-ink-faint'
                 }`}
               >
                 council

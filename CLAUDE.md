@@ -228,6 +228,16 @@ it is deliberately separate from `useEngine`, which drives evaluations — a fli
 would restart a run in fake mode. The roster also self-upgrades from the 282-row CSV
 fallback to the real one when the engine appears, with no page reload.
 
+**Theme**: dark is the DEFAULT; light is a toggle (sun/moon, top bar) saved in
+`localStorage` under `vc-theme`. Every colour in the app is a CSS variable in `index.css`;
+`:root[data-theme='dark']` overrides them all, so adding a colour means adding it to BOTH
+palettes. An inline script in `index.html` sets `data-theme` before first paint so there is
+no white flash. Two traps worth knowing: (1) `bg-ink text-white` breaks in dark mode because
+`ink` flips to near-white — use `text-on-ink`; (2) recharts takes colours as props, not
+classes, so the Traces chart uses `var(--color-*)`. A contrast check over every screen found
+no low-contrast text in dark mode (the checker was validated: near-black text on the dark
+card scores 1.1 and is flagged, body text scores 17.3).
+
 **"Council split" headline** now needs BOTH extremes AND a Negotiate verdict. Agents measure
 different things, so one scoring low while the rest score high is routine; it used to put
 "CLUSTER DISAGREEMENT" above a green ACCEPT on almost every deal.
@@ -251,8 +261,13 @@ Negotiation until all four report, then Supervisor consolidation — which the o
 grid could not show.
 
 Notes for anyone touching it:
-- Geometry is a fixed 960x520 diagram inside an `overflow-x-auto` container. It
-  deliberately does not reflow; a rewrapped graph is an unreadable graph.
+- **Vertical flow** (redrawn 2026-10-02): intake -> four agents in parallel -> gate ->
+  negotiation -> supervisor. The original was a fixed 960px-wide HORIZONTAL diagram that
+  overflowed and was clipped below a wide desktop. It is now laid out in a fixed 900x712
+  design space and scaled as one piece to its container (`useFitScale`, ResizeObserver; never
+  scales up past 1). All coordinates are design pixels, so they never change with screen size
+  and there is no sideways scrolling. Verified at 800px and 1360px. The Supervisor box takes
+  the colour of the verdict it reached (the old one was amber for every verdict).
 - The clock uses `setInterval` over wall-clock timestamps, **not**
   `requestAnimationFrame`. rAF does not fire in a hidden document, so a backgrounded
   tab froze the clock at 0.0s. Do not "optimise" it back to rAF.

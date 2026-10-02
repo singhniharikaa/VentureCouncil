@@ -381,7 +381,7 @@ function CandidateCard({
 
       {/* Match strength, shown as a bar so near-ties are visibly near-ties:
           the embedding is coarse, so 68% and 67% mean practically the same. */}
-      <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-[#f0f0ed]">
+      <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-track">
         <div
           className="h-full rounded-full bg-ink"
           style={{ width: `${Math.max(0, Math.min(100, match * 100))}%` }}

@@ -162,7 +162,7 @@ export function Creators() {
           type="button"
           onClick={() => setOnlyGaps((v) => !v)}
           className={`rounded-full border px-4 py-2 text-xs font-medium transition ${
-            onlyGaps ? 'border-ink bg-ink text-white' : 'border-line-strong hover:border-ink'
+            onlyGaps ? 'border-ink bg-ink text-on-ink' : 'border-line-strong hover:border-ink'
           }`}
         >
           Only rows with gaps
@@ -337,7 +337,7 @@ function CreatorDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-ink/25" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/55" onClick={onClose}>
       <div className="h-full w-full max-w-md overflow-y-auto bg-surface p-7 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold tracking-tight">{isNew ? 'Add creator' : 'Edit creator'}</h2>

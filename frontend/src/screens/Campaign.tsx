@@ -290,7 +290,7 @@ function BudgetCard({ budget: b }: { budget: CampaignResponse['budget'] }) {
 
       {total != null && (
         <div className="mt-6">
-          <div className="relative h-3 overflow-hidden rounded-full bg-[#f0f0ed]">
+          <div className="relative h-3 overflow-hidden rounded-full bg-track">
             <div
               className="absolute inset-y-0 left-0 bg-accept"
               style={{ width: pct(b.committed) }}

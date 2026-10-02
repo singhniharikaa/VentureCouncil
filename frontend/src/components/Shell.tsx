@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { ArrowCircle } from './ui'
 import { useEngine, useEngineWatch } from '../lib/api'
+import { useTheme } from '../lib/theme'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon, end: true },
@@ -55,7 +56,7 @@ function EngineBadge() {
   if (engine.status === 'live') {
     return (
       <span
-        className="inline-flex items-center gap-2 rounded-full border border-accept/40 bg-accept-bg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-accept"
+        className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-accept/40 bg-accept-bg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-accept"
         title={`Five ${engine.health.provider} agents over ${engine.health.creators} Supabase creators`}
       >
         <span className="h-2 w-2 rounded-full bg-accept" />
@@ -66,7 +67,7 @@ function EngineBadge() {
   if (engine.status === 'offline') {
     return (
       <span
-        className="inline-flex items-center gap-2 rounded-full border border-reject/50 bg-reject-bg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-reject"
+        className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-reject/50 bg-reject-bg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-reject"
         title="The Python engine is not reachable. Verdicts come from local arithmetic with no AI model."
       >
         <span className="h-2 w-2 rounded-full bg-reject" />
@@ -75,7 +76,7 @@ function EngineBadge() {
     )
   }
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-ink-faint">
+    <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-ink-faint">
       <span className="h-2 w-2 rounded-full bg-ink-faint" />
       Checking&hellip;
     </span>
@@ -87,10 +88,36 @@ function FakeModeStrip() {
   const engine = useEngineWatch()
   if (engine.status !== 'offline') return null
   return (
-    <div className="border-b border-reject/30 bg-reject px-6 py-2 text-center text-xs font-semibold text-white lg:px-10">
+    <div className="border-b border-reject/30 bg-reject px-6 py-2 text-center text-xs font-semibold text-on-reject lg:px-10">
       FAKE MODE &mdash; the AI engine is not connected. Results on screen are NOT from the AI
       agents. Start it with start_demo.bat.
     </div>
+  )
+}
+
+/** Sun / moon button. Dark is the default; the choice is remembered. */
+function ThemeToggle() {
+  const { theme, toggle } = useTheme()
+  const dark = theme === 'dark'
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
+      title={dark ? 'Switch to light theme' : 'Switch to dark theme'}
+      className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-ink-soft transition hover:border-ink hover:text-ink"
+    >
+      {dark ? (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M13.5 9.6A5.7 5.7 0 0 1 6.4 2.5a5.7 5.7 0 1 0 7.1 7.1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        </svg>
+      )}
+    </button>
   )
 }
 
@@ -101,7 +128,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex min-h-full">
       <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-line bg-paper px-5 py-6 lg:flex">
         <div className="mb-8 flex items-center gap-3 px-1">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-white">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-on-ink">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M2 12V6M6 12V3M10 12V8M14 12V5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
@@ -115,7 +142,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={() => navigate('/evaluate')}
-          className="mb-8 inline-flex items-center justify-between gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink/85"
+          className="mb-8 inline-flex items-center justify-between gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-on-ink transition hover:bg-ink/85"
         >
           New Evaluation
           <ArrowCircle />
@@ -167,6 +194,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
           <div className="ml-auto flex items-center gap-3 md:ml-0">
             <EngineBadge />
+            <ThemeToggle />
             <span className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-xs font-semibold">
               NS
             </span>

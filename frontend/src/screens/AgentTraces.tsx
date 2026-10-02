@@ -77,31 +77,31 @@ export function AgentTraces() {
         <div className="mt-6 h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={stats} margin={{ left: -18, right: 8 }}>
-              <CartesianGrid strokeDasharray="2 4" stroke="#e4e4e0" vertical={false} />
+              <CartesianGrid strokeDasharray="2 4" stroke="var(--color-line)" vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: '#5c5c5c' }}
-                axisLine={{ stroke: '#e4e4e0' }}
+                tick={{ fontSize: 11, fill: 'var(--color-ink-soft)' }}
+                axisLine={{ stroke: 'var(--color-line)' }}
                 tickLine={false}
               />
               <YAxis
                 domain={[0, 100]}
-                tick={{ fontSize: 11, fill: '#909090' }}
+                tick={{ fontSize: 11, fill: 'var(--color-ink-faint)' }}
                 axisLine={false}
                 tickLine={false}
               />
               <Tooltip
-                cursor={{ fill: 'rgba(10,10,10,0.04)' }}
+                cursor={{ fill: 'var(--color-line)', fillOpacity: 0.4 }}
                 contentStyle={{
                   borderRadius: 12,
-                  border: '1px solid #e4e4e0',
+                  border: '1px solid var(--color-line)', background: 'var(--color-surface)', color: 'var(--color-ink)',
                   fontSize: 12,
                 }}
                 formatter={(v) => [`${v}%`, 'Avg confidence']}
               />
               <Bar dataKey="avgConfidence" radius={[6, 6, 0, 0]}>
                 {stats.map((s) => (
-                  <Cell key={s.id} fill="#0a0a0a" />
+                  <Cell key={s.id} fill="var(--color-ink)" />
                 ))}
               </Bar>
             </BarChart>
