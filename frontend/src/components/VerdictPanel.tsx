@@ -87,9 +87,9 @@ export function CompExplorer({ comps, onOpen }: { comps: Comp[]; onOpen?: (c: Co
           Retrieved comps (K={comps.length})
         </h3>
       </div>
-      <div className="eyebrow mb-4">Vector distance &lt; 0.15</div>
+      <div className="eyebrow mb-4">Nearest past deals by vector distance</div>
 
-      <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {comps.map((c) => (
           <button
             key={c.id}

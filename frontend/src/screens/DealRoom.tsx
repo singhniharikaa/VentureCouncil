@@ -267,7 +267,7 @@ export function DealRoom() {
       {verdict?.councilSplit && <DebateView agents={agents} reason={verdict.splitReason} />}
 
       {progress && progress.comps.length > 0 && (
-        <section className="mt-9 grid gap-5 lg:grid-cols-[1fr_360px]">
+        <section className="mt-9 grid gap-5">
           <PricingBasis pricing={agents.find((a) => a.id === 'pricing')} />
           <CompExplorer comps={progress.comps} />
         </section>
@@ -301,41 +301,82 @@ function PricingBasis({ pricing }: { pricing?: AgentResult }) {
     )
   }
 
-  const rateCard = pricing.typed.rate_card_inr
-  const compMedian = pricing.typed.comp_median_inr
-  const deviation = pricing.typed.deviation_pct
+  // The live engine and the offline council name these fields differently; read both.
+  const num = (v: unknown) => (typeof v === 'number' ? v : undefined)
+  const t = pricing.typed
+  const offer = num(t.proposed_amount_inr)
+  const rateCard = num(t.rate_card_inr) ?? num(t.creator_price_inr)
+  const compMedian = num(t.comp_median_inr)
+  const basis = rateCard ?? compMedian
+  const deviation =
+    num(t.deviation_pct) ??
+    (offer !== undefined && basis ? Math.round(((offer - basis) / basis) * 100) : undefined)
+  const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`
 
   const tiles: { label: string; value: string }[] = []
-  if (typeof rateCard === 'number') {
-    tiles.push({ label: 'Creator rate card', value: `₹${rateCard.toLocaleString('en-IN')}` })
-  } else if (typeof compMedian === 'number') {
-    tiles.push({ label: 'Comparable median', value: `₹${compMedian.toLocaleString('en-IN')}` })
+  if (offer !== undefined) tiles.push({ label: 'Offer', value: inr(offer) })
+  if (rateCard !== undefined) {
+    tiles.push({
+      label: t.price_estimated ? "Creator's price (estimated)" : "Creator's listed price",
+      value: inr(rateCard),
+    })
+  } else if (compMedian !== undefined) {
+    tiles.push({ label: 'Comparable median', value: inr(compMedian) })
   }
-  if (typeof deviation === 'number') {
-    tiles.push({ label: 'Offer deviation', value: `${deviation >= 0 ? '+' : ''}${deviation}%` })
+  if (deviation !== undefined) {
+    tiles.push({
+      label: 'Offer vs price',
+      value: `${deviation >= 0 ? '+' : ''}${deviation}%`,
+    })
   }
-  if (typeof pricing.typed.comps_used === 'number') {
-    tiles.push({ label: 'Comps retrieved', value: String(pricing.typed.comps_used) })
+  if (typeof t.comps_used === 'number') {
+    tiles.push({ label: 'Comps retrieved', value: String(t.comps_used) })
   }
+
+  const verdictWord =
+    pricing.recommendation === 'accept'
+      ? 'Fair price'
+      : pricing.recommendation === 'negotiate'
+        ? 'Negotiate the price'
+        : 'Price is off'
+  const verdictTone =
+    pricing.recommendation === 'accept'
+      ? 'border-accept/30 bg-accept-bg'
+      : pricing.recommendation === 'negotiate'
+        ? 'border-negotiate/30 bg-negotiate-bg'
+        : 'border-reject/30 bg-reject-bg'
 
   return (
     <Card className="p-6">
       <h3 className="text-base font-bold uppercase tracking-tight">Pricing basis</h3>
       <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-        {typeof rateCard === 'number'
-          ? "Priced against the creator's own quoted rate — the strongest basis available."
-          : pricing.insufficientData
-            ? 'No rate card and no comparables. There is no basis to judge this offer.'
-            : 'The creator has no rate on file for this deal type, so the offer is judged against comparable creators. Treat this as inferred, not quoted.'}
+        {pricing.insufficientData
+          ? 'No rate card and no comparables. There is no basis to judge this offer.'
+          : t.price_estimated
+            ? "The creator's price is an estimate (based on similar creators), not a quoted rate. Treat it as a guide."
+            : "Judged against the creator's own listed price, the strongest basis available."}
       </p>
       {tiles.length > 0 && (
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          {tiles.map((t) => (
-            <div key={t.label} className="rounded-xl border border-line bg-paper p-4">
-              <div className="text-xl font-bold tracking-tight">{t.value}</div>
-              <div className="eyebrow mt-1">{t.label}</div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {tiles.map((x) => (
+            <div key={x.label} className="rounded-xl border border-line bg-paper p-4">
+              <div className="text-xl font-bold tracking-tight">{x.value}</div>
+              <div className="eyebrow mt-1">{x.label}</div>
             </div>
           ))}
+        </div>
+      )}
+      {!pricing.insufficientData && (
+        <div className={`mt-5 rounded-xl border p-4 ${verdictTone}`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="eyebrow">Pricing verdict</div>
+            <div className="text-sm font-bold">
+              {verdictWord} · {Math.round(pricing.score)}/100
+            </div>
+          </div>
+          {pricing.reasoning && (
+            <p className="mt-2 text-sm leading-relaxed">{pricing.reasoning}</p>
+          )}
         </div>
       )}
     </Card>

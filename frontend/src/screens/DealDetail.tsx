@@ -93,7 +93,7 @@ export function DealDetail() {
       )}
 
       {deal.comps.length > 0 && (
-        <section className="mt-9 max-w-md">
+        <section className="mt-9">
           <CompExplorer comps={deal.comps} />
         </section>
       )}
