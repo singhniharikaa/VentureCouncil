@@ -30,3 +30,7 @@ backups/
 
 # local explainer video project - not part of the repo
 video/
+
+# Presentation screenshots: most show creator names and rate cards. Only the one the deck uses is tracked.
+screenshots/*
+!screenshots/04-verdict.png
