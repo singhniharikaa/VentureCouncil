@@ -11,6 +11,10 @@ precedent rather than model intuition.
 
 College mini-project — AI & Data Science.
 
+**What makes it different:** most influencer tools answer *"who should we hire?"*.
+VentureCouncil answers *"should we sign this specific offer?"* — with a score, a
+plain-English reason, and contract protection the AI cannot talk its way around.
+
 ---
 
 ## Architecture
@@ -43,13 +47,22 @@ College mini-project — AI & Data Science.
   rated only "medium risk" by the model and Accepted. Now a critical clause forces
   "high risk", so the veto fires: the same deal goes ACCEPT → NEGOTIATE.
 
+### Two ways in, one evaluation
+
+| Path | Starting point | Flow |
+|---|---|---|
+| **A — Discovery** | A free-text brief and a budget | pgvector search → ranked creators → tick up to 5 → evaluate |
+| **B — Direct** | A creator and an offer (optionally a contract) | evaluate straight away |
+
+Both end in the same five-agent evaluation.
+
 | Layer | What |
 |---|---|
 | Engine | Python · LangGraph · 5 agents + Supervisor |
 | LLM | Groq `openai/gpt-oss-120b` (pluggable: Groq / Gemini / xAI) |
 | Data | Supabase (Postgres + pgvector) — 649 creators, 18 brands, 52 past deals |
 | Embeddings | `sentence-transformers` all-MiniLM-L6-v2, 384-dim, local and free |
-| API | FastAPI |
+| API | FastAPI — `/health` `/creators` `/brands` `/discover` `/evaluate` `/campaign` |
 | Frontend | React 19 · Vite · Tailwind 4 · React Router · Recharts |
 
 ---
@@ -167,15 +180,24 @@ measured latency — then the Supervisor's weighted arithmetic as a table. Use
 ```
 app/          engine: agents, LangGraph wiring, supervisor, LLM layer
   agents/     audience_fit · engagement · pricing · risk · negotiation
+  supervisor.py weighted score, thresholds, high-risk veto (no LLM)
+  contract.py fixed-rule contract clause checks
+  narrative.py  "Why this verdict" explanation (AI text, template fallback)
+  campaign.py   multi-creator budget arithmetic + budget-fit suggestion
   discovery.py  Path A: filtered pgvector search over the roster
   graph.py    fan-out / gate / fan-in wiring
   llm.py      provider-agnostic LLM calls, concurrency cap, 429 backoff
   config.py   Supabase connection, embeddings, secrets from .env
-api/          FastAPI: /health /creators /brands /discover /evaluate
+api/          FastAPI: /health /creators /brands /discover /evaluate /campaign
   adapter.py  engine output -> frontend contract
 frontend/     React app (see frontend/README.md)
+  screens/    Dashboard · Discover · NewEvaluation · DealRoom · DealDetail ·
+              Campaign · Creators · AgentTraces · AuditLog
+tools/        calibrate_thresholds.py + calibration.json (threshold evidence)
+tests/        249 tests, no DB / key / network needed
 main.py       CLI entry point
-demo.py       presentation walkthrough
+demo.py       presentation walkthrough (+ demo_fixtures.json for --offline)
+start_demo.bat  one-click launcher for the engine and website
 CLAUDE.md     design decisions and hard-won gotchas — read before changing things
 ```
 
@@ -201,15 +223,19 @@ One evaluation = **5 LLM calls**, four of them concurrent.
 python -m pytest
 ```
 
-179 tests, ~30 seconds, and they need **no database, no API key and no network** —
+249 tests, ~30 seconds, and they need **no database, no API key and no network** —
 everything worth protecting in this system is pure logic:
 
 | File | What it pins down |
 |---|---|
-| `test_supervisor.py` | weighted scoring, the 70/45 bands, and the high-risk veto |
+| `test_supervisor.py` | weighted scoring, the 50/45 bands and boundaries, the high-risk veto |
 | `test_adapter.py` | the engine→frontend contract; "we don't know" survives translation |
-| `test_llm.py` | rate-limit detection across provider shapes, backoff, JSON parsing |
+| `test_llm.py`, `test_llm_resilience.py` | rate-limit detection, backoff, JSON parsing, spent daily quota |
 | `test_graph.py` | fan-out/gate/fan-in topology — every node runs exactly once |
+| `test_contract.py` | fixed contract rules: a critical clause forces "high risk" |
+| `test_campaign.py` | budget arithmetic and multi-creator orchestration |
+| `test_discovery.py`, `test_engagement.py` | vector-search gotchas; zero engagement = "not measured" |
+| `test_narrative.py` | the "Why this verdict" text can never overturn the decision |
 
 `test_graph.py` is the regression test for CLAUDE.md gotcha #1. It was verified
 by reintroducing the bug: the Supervisor then runs twice and the test fails.
@@ -261,7 +287,27 @@ deals — or the accepted plus negotiable ones — go over budget. Five creators
 1–2 minutes because the free Groq tier allows about two evaluations a minute. One creator
 failing never sinks the rest. `POST /api/campaign` is the API behind it.
 
-## Not built yet
+## Calibration
+
+Thresholds were fitted on 11 labelled deals (`python tools/calibrate_thresholds.py`):
+Accept 52.8–76.8, Negotiate 45.1–46.5, Reject 25.2–43.7, with two clean gaps. 50/45 scores
+11/11 where the original 70/45 scored 9/11. **n = 11** — treat it as indicative, not proof.
+Groq scores noticeably harsher than Gemini, so every reported number comes from the pinned
+provider. Always read the numeric score next to the verdict word.
+
+## Roadmap
+
+Ideas discussed but **not built**:
+
+- **Live YouTube refresh** — the YouTube Data API (10,000 free units/day) can refresh
+  subscribers and recent-video engagement for the 274 YouTube creators. Instagram has no
+  equivalent free API. Would run as a separate refresh job, keeping evaluations free of
+  live external calls.
+- **Cost tracking** — a per-call `llm_usage` table (tokens, cost, latency, retries) with
+  budget limits, so cost per evaluation is measured rather than estimated.
+- **Outcome logging** — record what brands accepted and actually paid, to build a real-deal dataset.
+
+## Known limitations
 
 - `data_confidence_score` is stored and over-credits creators whose
   engagement rate is recorded as zero; correcting it needs a reseed.
